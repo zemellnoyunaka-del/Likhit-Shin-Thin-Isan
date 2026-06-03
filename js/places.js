@@ -119,18 +119,24 @@ const PlaceInfo = (() => {
     } catch { return null; }
   }
 
-  async function fetchAround(lat, lng, radius = 500) {
-    const q = `[out:json][timeout:14];
+  const _AMENITY_FILTER =
+    'restaurant|cafe|fast_food|food_court|hospital|clinic|pharmacy|' +
+    'bank|atm|school|university|college|fuel|police|post_office|' +
+    'bus_station|marketplace|convenience|hotel|place_of_worship|parking';
+
+  async function fetchAround(lat, lng, radius = 700) {
+    const q = `[out:json][timeout:15];
 (
-  node(around:${radius},${lat},${lng})[amenity][name];
+  node(around:${radius},${lat},${lng})[amenity~"${_AMENITY_FILTER}"][name];
+  way(around:${radius},${lat},${lng})[amenity~"${_AMENITY_FILTER}"][name];
   node(around:${radius},${lat},${lng})[shop][name];
-  node(around:${radius},${lat},${lng})[tourism][name];
-  node(around:${radius},${lat},${lng})[leisure][name];
+  node(around:${radius},${lat},${lng})[tourism~"hotel|attraction|museum|guest_house|viewpoint"][name];
+  node(around:${radius},${lat},${lng})[leisure~"park|fitness_centre|swimming_pool"][name];
 )->.r;
-.r out tags 60;`;
+.r out center tags 70;`;
     try {
       const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 15000);
+      setTimeout(() => ctrl.abort(), 16000);
       const res = await fetch(OVERPASS, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -175,5 +181,22 @@ const PlaceInfo = (() => {
     return '📍';
   }
 
-  return { fetchNearby, fetchAround, getLatLng, closest, categoryLabel, formatAddress, getWikiPhoto, poiIcon };
+  function poiColor(tags) {
+    const a = tags.amenity, s = tags.shop, t = tags.tourism, l = tags.leisure;
+    if (a === 'restaurant' || a === 'cafe' || a === 'fast_food' || a === 'food_court') return '#E8420C';
+    if (a === 'hospital' || a === 'clinic' || a === 'pharmacy') return '#D32F2F';
+    if (a === 'school' || a === 'university' || a === 'college') return '#1565C0';
+    if (a === 'bank' || a === 'atm')          return '#2E7D32';
+    if (a === 'fuel')                         return '#E65100';
+    if (a === 'police')                       return '#283593';
+    if (a === 'place_of_worship')             return '#6A1B9A';
+    if (a === 'bus_station')                  return '#00695C';
+    if (s || a === 'marketplace' || a === 'convenience') return '#6A1B9A';
+    if (t)                                    return '#BF360C';
+    if (l === 'park')                         return '#2E7D32';
+    if (l)                                    return '#00695C';
+    return '#546E7A';
+  }
+
+  return { fetchNearby, fetchAround, getLatLng, closest, categoryLabel, formatAddress, getWikiPhoto, poiIcon, poiColor };
 })();

@@ -16,8 +16,8 @@ const App = (() => {
   let activePin = null;
   let placeLat = null, placeLng = null;
   let poiLayer = null;
-  let _lastPoiLat = null, _lastPoiLng = null;
-  const POI_RELOAD_M = 250;
+  let _poiTimer = null;
+  let _poiLoading = false;
 
   /* ── Boot ────────────────────────────────────────────────── */
   async function init() {
@@ -44,6 +44,8 @@ const App = (() => {
     startTracking();
     bindUI();
     map.on('click', onMapClick);
+    map.on('moveend', _schedulePOI);
+    _schedulePOI();
   }
 
   /* ── Pins ────────────────────────────────────────────────── */
@@ -81,26 +83,55 @@ const App = (() => {
       setText('statusText', 'ไม่รองรับ GPS');
       return;
     }
+    setText('statusText', 'กำลังขอสิทธิ์ GPS…');
+
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' }).then(perm => {
+        if (perm.state === 'denied') { _showGpsBanner(true); return; }
+        _startWatch();
+        perm.onchange = () => { if (perm.state === 'denied') _showGpsBanner(true); };
+      }).catch(_startWatch);
+    } else {
+      _startWatch();
+    }
+  }
+
+  function _startWatch() {
+    if (watchId !== null) return;
     watchId = navigator.geolocation.watchPosition(
-      onPosition,
-      onGeoErr,
+      onPosition, onGeoErr,
       { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
     );
   }
 
   function onPosition(pos) {
+    document.getElementById('gpsBanner').classList.remove('show');
     const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
     userLat = lat; userLng = lng;
 
     updateUserMarker(lat, lng, acc);
     checkProximity(lat, lng);
     updateNavPanel(lat, lng);
-    _maybeLoadPOI(lat, lng);
     setText('statusText', `±${Math.round(acc)} ม.`);
     document.getElementById('statusDot').classList.add('active');
   }
 
-  function onGeoErr() { setText('statusText', 'ไม่พบ GPS'); }
+  function onGeoErr(err) {
+    const denied = err?.code === 1;
+    const msgs = { 1: 'ไม่ได้รับสิทธิ์ GPS', 2: 'ไม่พบสัญญาณ GPS', 3: 'GPS หมดเวลา' };
+    setText('statusText', msgs[err?.code] || 'GPS ผิดพลาด');
+    if (denied) _showGpsBanner(true);
+  }
+
+  function _showGpsBanner(denied) {
+    setText('gpsBannerTitle', denied ? 'ไม่ได้รับสิทธิ์ตำแหน่ง' : 'ต้องการตำแหน่งของคุณ');
+    setText('gpsBannerSub', denied
+      ? 'เปิดสิทธิ์ตำแหน่งในการตั้งค่าเบราว์เซอร์ แล้วกด "ลองใหม่"'
+      : 'แตะ "อนุญาต" เพื่อดูตำแหน่งและสถานที่รอบคุณ');
+    const btn = document.getElementById('gpsBannerBtn');
+    btn.textContent = denied ? 'ลองใหม่' : 'อนุญาต';
+    document.getElementById('gpsBanner').classList.add('show');
+  }
 
   function updateUserMarker(lat, lng, acc) {
     const ll = [lat, lng];
@@ -233,7 +264,20 @@ const App = (() => {
     // Center button
     document.getElementById('centerBtn').addEventListener('click', () => {
       if (userLat) map.setView([userLat, userLng], 17);
-      else toast('ยังไม่ได้รับสัญญาณ GPS');
+      else _showGpsBanner(false);
+    });
+
+    // GPS banner
+    document.getElementById('gpsBannerBtn').addEventListener('click', () => {
+      document.getElementById('gpsBanner').classList.remove('show');
+      watchId = null;
+      navigator.geolocation.getCurrentPosition(
+        pos => { onPosition(pos); _startWatch(); },
+        err => { onGeoErr(err); }
+      );
+    });
+    document.getElementById('gpsBannerClose').addEventListener('click', () => {
+      document.getElementById('gpsBanner').classList.remove('show');
     });
 
     // Pin sheet
@@ -282,31 +326,48 @@ const App = (() => {
   }
 
   /* ── POI Markers ─────────────────────────────────────────── */
-  function _maybeLoadPOI(lat, lng) {
-    if (_lastPoiLat !== null) {
-      const d = NavManager.haversine(lat, lng, _lastPoiLat, _lastPoiLng);
-      if (d < POI_RELOAD_M) return;
-    }
-    _lastPoiLat = lat; _lastPoiLng = lng;
-    _loadPOI(lat, lng);
+  function _schedulePOI() {
+    clearTimeout(_poiTimer);
+    _poiTimer = setTimeout(_loadPOI, 700);
   }
 
-  async function _loadPOI(lat, lng) {
-    const elements = await PlaceInfo.fetchAround(lat, lng, 500);
+  async function _loadPOI() {
+    if (map.getZoom() < 14 || _poiLoading) return;
+    _poiLoading = true;
+    const c = map.getCenter();
+
+    /* Radius ≈ distance from center to corner of visible area, capped at 900 m */
+    const bounds = map.getBounds();
+    const cornerLat = bounds.getNorth(), cornerLng = bounds.getEast();
+    const radius = Math.min(900, Math.round(NavManager.haversine(c.lat, c.lng, cornerLat, cornerLng) * 0.65));
+
+    const elements = await PlaceInfo.fetchAround(c.lat, c.lng, radius);
     poiLayer.clearLayers();
+
     elements.forEach(el => {
       const pos = PlaceInfo.getLatLng(el);
       if (!pos) return;
-      const emoji = PlaceInfo.poiIcon(el.tags || {});
+      const tags  = el.tags || {};
+      const emoji = PlaceInfo.poiIcon(tags);
+      const color = PlaceInfo.poiColor(tags);
+      const name  = (tags['name:th'] || tags.name || '').slice(0, 12);
+
       const icon = L.divIcon({
         className: '',
-        html: `<div class="poi-marker">${emoji}</div>`,
-        iconSize: [34, 34], iconAnchor: [17, 17]
+        html: `<div class="poi-pin">
+                 <div class="poi-pin-dot" style="background:${color}">${emoji}</div>
+                 ${name ? `<div class="poi-pin-label">${_esc(name)}</div>` : ''}
+               </div>`,
+        iconSize: [64, 52],
+        iconAnchor: [32, 38]
       });
+
       L.marker([pos.lat, pos.lng], { icon, zIndexOffset: 100 })
        .on('click', e => { L.DomEvent.stopPropagation(e); closeSheet(); _populatePlaceSheet(el); })
        .addTo(poiLayer);
     });
+
+    _poiLoading = false;
   }
 
   /* ── Place Info Sheet (OSM POI) ─────────────────────────── */

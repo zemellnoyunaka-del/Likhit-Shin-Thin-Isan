@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Map – แผงผู้ดูแล</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ══ Login Screen ══════════════════════════════════════════ -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-icon">🔐</div>
+    <div class="login-title">แผงผู้ดูแลระบบ</div>
+    <div class="login-sub">Voice Map Administration</div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label class="form-label">รหัสผ่าน</label>
+        <input type="password" class="form-input" id="pwInput"
+               placeholder="กรอกรหัสผ่าน" autocomplete="current-password" autofocus>
+        <div class="login-err" id="loginErr"></div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%; margin-top:4px;">
+        เข้าสู่ระบบ →
+      </button>
+    </form>
+
+    <div style="margin-top:18px; font-size:.82rem; color:var(--text-muted);">
+      <a href="index.html" style="color:var(--text-muted); text-decoration:none;">← กลับหน้าหลัก</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Admin Layout ═══════════════════════════════════════════ -->
+<div class="admin-layout" id="adminLayout" style="display:none;">
+
+  <!-- Sidebar -->
+  <div class="admin-sidebar">
+
+    <div class="admin-head">
+      <div class="admin-head-row">
+        <div>
+          <h1>🗺️ Voice Map Admin</h1>
+          <p>จัดการหมุดพิเศษและไฟล์เสียง</p>
+        </div>
+        <a href="index.html" style="color:rgba(255,255,255,.65); font-size:.78rem; text-decoration:none; margin-top:2px;">← หน้าหลัก</a>
+      </div>
+    </div>
+
+    <div class="admin-toolbar">
+      <button class="btn btn-primary" id="addPinBtn" style="flex:1;">+ เพิ่มหมุด</button>
+    </div>
+
+    <div class="add-hint" id="addHint">
+      <span>🖱️ คลิกบนแผนที่เพื่อวางหมุด</span>
+      <button id="cancelAddBtn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.82rem;">ยกเลิก</button>
+    </div>
+
+    <div class="admin-pin-list" id="pinList">
+      <div class="empty-state">
+        <div class="empty-state-icon">📍</div>
+        <div class="empty-state-text">กำลังโหลด…</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Map -->
+  <div class="admin-map">
+    <div id="adminMap"></div>
+  </div>
+
+</div>
+
+<!-- ══ Edit / Create Pin Modal ═══════════════════════════════ -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-card">
+
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">เพิ่มหมุดใหม่</span>
+      <button class="modal-close-btn" id="modalCloseBtn">✕</button>
+    </div>
+
+    <!-- Basic info -->
+    <div class="form-group">
+      <label class="form-label">ชื่อสถานที่ <span style="color:var(--danger);">*</span></label>
+      <input type="text" class="form-input" id="pinName" placeholder="เช่น วัดพระแก้ว, ตลาดนัด…">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">คำอธิบาย</label>
+      <textarea class="form-input" id="pinDesc" rows="3" placeholder="คำอธิบายสถานที่ (ไม่บังคับ)"></textarea>
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label">ละติจูด</label>
+        <input type="number" class="form-input" id="pinLat" step="0.000001" placeholder="13.756331">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ลองจิจูด</label>
+        <input type="number" class="form-input" id="pinLng" step="0.000001" placeholder="100.501762">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Audio recorder -->
+    <div class="form-group">
+      <label class="form-label" style="margin-bottom:10px;">🎙️ ไฟล์เสียงประจำหมุด (สูงสุด 60 วินาที)</label>
+
+      <div class="recorder-box">
+
+        <!-- Timer shown while recording -->
+        <div class="rec-timer" id="recTimer">00:00</div>
+
+        <!-- Animated waveform -->
+        <div class="waveform" id="recWave">
+          <div class="wv-bar"></div>
+          <div class="wv-bar"></div>
+          <div class="wv-bar"></div>
+          <div class="wv-bar"></div>
+          <div class="wv-bar"></div>
+          <div class="wv-bar"></div>
+          <div class="wv-bar"></div>
+          <div class="wv-bar"></div>
+        </div>
+
+        <div class="rec-status" id="recStatus">ยังไม่มีไฟล์เสียง</div>
+
+        <div class="rec-controls">
+          <!-- Record / Stop -->
+          <button class="rec-btn rec-start" id="recBtn" title="เริ่มอัดเสียง">🎙️</button>
+          <!-- Play (shown after recording) -->
+          <button class="rec-btn rec-play" id="recPlayBtn" style="display:none;" title="ฟังเสียง">▶️</button>
+          <!-- Delete audio -->
+          <button class="rec-btn rec-del" id="recDelBtn" style="display:none;" title="ลบเสียง">🗑️</button>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="cancelBtn" style="flex:1;">ยกเลิก</button>
+      <button class="btn btn-primary"  id="saveBtn"   style="flex:1;">💾 บันทึกหมุด</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ Toast ══════════════════════════════════════════════════ -->
+<div class="toast" id="adminToast"></div>
+
+<!-- ══ Scripts ══════════════════════════════════════════════ -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/db.js"></script>
+<script src="js/audio-manager.js"></script>
+<script src="js/admin.js"></script>
+
+</body>
+</html>

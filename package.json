@@ -1,0 +1,20 @@
+{
+  "name": "nirat_voice_map",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+   "dev": "lite-server",
+     "test": "echo \"Error: no test specified\" && exit 1"
+   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "playwright": "^1.60.0"
+  },
+  "devDependencies": {
+    "lite-server": "^2.6.1"
+  }
+}

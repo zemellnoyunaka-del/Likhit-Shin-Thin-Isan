@@ -12,30 +12,35 @@
 <!-- ══ Login Screen ══════════════════════════════════════════ -->
 <div class="login-screen" id="loginScreen">
   <div class="login-card">
-    <div class="login-icon">🔐</div>
-    <div class="login-title">แผงผู้ดูแลระบบ</div>
-    <div class="login-sub">Voice Map Administration</div>
+    <div class="login-icon" id="loginIcon">🔐</div>
+    <div class="login-title" id="loginTitle">แผงผู้ดูแลระบบ</div>
+    <div class="login-sub" id="loginSub">Voice Map Administration</div>
 
-    <form id="loginForm">
+    <form id="loginForm" autocomplete="off">
+      <div class="form-group">
+        <label class="form-label">ชื่อผู้ใช้</label>
+        <input type="text" class="form-input" id="unInput"
+               placeholder="กรอกชื่อผู้ใช้" autocomplete="username" autofocus>
+      </div>
       <div class="form-group">
         <label class="form-label">รหัสผ่าน</label>
         <input type="password" class="form-input" id="pwInput"
-               placeholder="กรอกรหัสผ่าน" autocomplete="current-password" autofocus>
-        <div class="login-err" id="loginErr"></div>
+               placeholder="กรอกรหัสผ่าน" autocomplete="current-password">
       </div>
-      <button type="submit" class="btn btn-primary" style="width:100%; margin-top:4px;">
+      <div class="login-err" id="loginErr"></div>
+      <button type="submit" class="btn btn-primary btn-full" id="loginSubmitBtn">
         เข้าสู่ระบบ →
       </button>
     </form>
 
-    <div style="margin-top:18px; font-size:.82rem; color:var(--text-muted);">
-      <a href="index.html" style="color:var(--text-muted); text-decoration:none;">← กลับหน้าหลัก</a>
+    <div class="login-foot">
+      <a class="login-foot-link" href="index.html">← กลับหน้าหลัก</a>
     </div>
   </div>
 </div>
 
 <!-- ══ Admin Layout ═══════════════════════════════════════════ -->
-<div class="admin-layout" id="adminLayout" style="display:none;">
+<div class="admin-layout" id="adminLayout">
 
   <!-- Sidebar -->
   <div class="admin-sidebar">
@@ -46,18 +51,44 @@
           <h1>🗺️ Voice Map Admin</h1>
           <p>จัดการหมุดพิเศษและไฟล์เสียง</p>
         </div>
-        <a href="index.html" style="color:rgba(255,255,255,.65); font-size:.78rem; text-decoration:none; margin-top:2px;">← หน้าหลัก</a>
+        <a class="admin-home-link" href="index.html">← หน้าหลัก</a>
+      </div>
+      <div class="admin-user-row">
+        <span class="admin-user-badge">👤 <span id="adminUsername"></span></span>
+        <button type="button" class="admin-logout-btn" id="logoutBtn">ออกจากระบบ</button>
       </div>
     </div>
 
     <div class="admin-toolbar">
-      <button class="btn btn-primary" id="addPinBtn" style="flex:1;">+ เพิ่มหมุด</button>
+      <button type="button" class="btn btn-primary btn-full" id="addPinBtn">+ เพิ่มหมุด</button>
+    </div>
+
+    <!-- Place search → add pin -->
+    <div class="place-search-section">
+      <div class="place-search-bar" id="placeSearchBar">
+        <span class="place-search-icon">📍</span>
+        <input type="text" class="place-search-input" id="placeSearchInput"
+               placeholder="ค้นหาสถานที่เพื่อเพิ่มหมุด…" autocomplete="off">
+        <button type="button" class="admin-search-clear rec-hidden"
+                id="placeSearchClear" aria-label="ล้าง">✕</button>
+      </div>
+      <div class="place-search-results rec-hidden" id="placeSearchResults"></div>
     </div>
 
     <div class="add-hint" id="addHint">
       <span>🖱️ คลิกบนแผนที่เพื่อวางหมุด</span>
-      <button id="cancelAddBtn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.82rem;">ยกเลิก</button>
+      <button type="button" class="add-cancel-btn" id="cancelAddBtn">ยกเลิก</button>
     </div>
+
+    <!-- Search -->
+    <div class="admin-search-wrap">
+      <span class="admin-search-icon">🔍</span>
+      <input type="search" class="admin-search-input" id="pinSearch"
+             placeholder="ค้นหาหมุด…" autocomplete="off">
+      <button type="button" class="admin-search-clear rec-hidden" id="pinSearchClear"
+              aria-label="ล้างการค้นหา">✕</button>
+    </div>
+    <div class="admin-search-count" id="pinSearchCount"></div>
 
     <div class="admin-pin-list" id="pinList">
       <div class="empty-state">
@@ -81,12 +112,11 @@
 
     <div class="modal-header">
       <span class="modal-title" id="modalTitle">เพิ่มหมุดใหม่</span>
-      <button class="modal-close-btn" id="modalCloseBtn">✕</button>
+      <button type="button" class="modal-close-btn" id="modalCloseBtn">✕</button>
     </div>
 
-    <!-- Basic info -->
     <div class="form-group">
-      <label class="form-label">ชื่อสถานที่ <span style="color:var(--danger);">*</span></label>
+      <label class="form-label">ชื่อสถานที่ <span class="required-star">*</span></label>
       <input type="text" class="form-input" id="pinName" placeholder="เช่น วัดพระแก้ว, ตลาดนัด…">
     </div>
 
@@ -108,17 +138,13 @@
 
     <div class="divider"></div>
 
-    <!-- Audio recorder -->
     <div class="form-group">
-      <label class="form-label" style="margin-bottom:10px;">🎙️ ไฟล์เสียงประจำหมุด (สูงสุด 60 วินาที)</label>
+      <label class="form-label rec-audio-label">🎙️ ไฟล์เสียงประจำหมุด (สูงสุด 60 วินาที)</label>
 
       <div class="recorder-box">
+        <div class="rec-timer rec-hidden" id="recTimer">00:00</div>
 
-        <!-- Timer shown while recording -->
-        <div class="rec-timer" id="recTimer">00:00</div>
-
-        <!-- Animated waveform -->
-        <div class="waveform" id="recWave">
+        <div class="waveform rec-hidden" id="recWave">
           <div class="wv-bar"></div>
           <div class="wv-bar"></div>
           <div class="wv-bar"></div>
@@ -132,20 +158,16 @@
         <div class="rec-status" id="recStatus">ยังไม่มีไฟล์เสียง</div>
 
         <div class="rec-controls">
-          <!-- Record / Stop -->
-          <button class="rec-btn rec-start" id="recBtn" title="เริ่มอัดเสียง">🎙️</button>
-          <!-- Play (shown after recording) -->
-          <button class="rec-btn rec-play" id="recPlayBtn" style="display:none;" title="ฟังเสียง">▶️</button>
-          <!-- Delete audio -->
-          <button class="rec-btn rec-del" id="recDelBtn" style="display:none;" title="ลบเสียง">🗑️</button>
+          <button type="button" class="rec-btn rec-start" id="recBtn" title="เริ่มอัดเสียง">🎙️</button>
+          <button type="button" class="rec-btn rec-play rec-hidden" id="recPlayBtn" title="ฟังเสียง">▶️</button>
+          <button type="button" class="rec-btn rec-del rec-hidden" id="recDelBtn" title="ลบเสียง">🗑️</button>
         </div>
-
       </div>
     </div>
 
     <div class="modal-actions">
-      <button class="btn btn-outline" id="cancelBtn" style="flex:1;">ยกเลิก</button>
-      <button class="btn btn-primary"  id="saveBtn"   style="flex:1;">💾 บันทึกหมุด</button>
+      <button type="button" class="btn btn-outline modal-action-btn" id="cancelBtn">ยกเลิก</button>
+      <button type="button" class="btn btn-primary modal-action-btn" id="saveBtn">💾 บันทึกหมุด</button>
     </div>
 
   </div>

@@ -12,6 +12,7 @@ const AdminApp = (() => {
   let newBlob   = null;    // freshly recorded blob
   let prevBlob  = null;    // blob already in DB for this pin
   let audioDeleted = false;
+  let searchQuery = '';
 
   /* ── Boot ────────────────────────────────────────────────── */
   async function init() {
@@ -24,6 +25,8 @@ const AdminApp = (() => {
   async function boot() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminLayout').style.display = 'flex';
+    document.getElementById('adminUsername').textContent =
+      localStorage.getItem('vmAdminUser') || 'admin';
 
     await VoiceMapDB.init();
 
@@ -55,32 +58,67 @@ const AdminApp = (() => {
 
   /* ── Pin list ────────────────────────────────────────────── */
   function renderList() {
-    const el = document.getElementById('pinList');
+    const el    = document.getElementById('pinList');
+    const count = document.getElementById('pinSearchCount');
 
     if (!pins.length) {
       el.innerHTML = `<div class="empty-state">
         <div class="empty-state-icon">📍</div>
         <div class="empty-state-text">ยังไม่มีหมุดพิเศษ<br>กด "+ เพิ่มหมุด" แล้วคลิกบนแผนที่</div>
       </div>`;
+      count.textContent = '';
       return;
     }
 
-    el.innerHTML = pins.map(p => `
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = q
+      ? pins.filter(p =>
+          p.name.toLowerCase().includes(q) ||
+          (p.description || '').toLowerCase().includes(q))
+      : pins;
+
+    /* update count label */
+    if (q) {
+      count.textContent = filtered.length
+        ? `พบ ${filtered.length} จาก ${pins.length} หมุด`
+        : `ไม่พบหมุดที่ตรงกับ "${q}"`;
+    } else {
+      count.textContent = `${pins.length} หมุดทั้งหมด`;
+    }
+
+    if (!filtered.length) {
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-state-icon" style="opacity:.35">🔍</div>
+        <div class="empty-state-text">ไม่พบหมุดที่ตรงกับ<br>"${esc(q)}"</div>
+      </div>`;
+      return;
+    }
+
+    el.innerHTML = filtered.map(p => `
       <div class="pin-card" onclick="AdminApp.focusPin('${p.id}')">
         <div class="pin-card-row">
           <div>
-            <div class="pin-card-name">📍 ${esc(p.name)}</div>
+            <div class="pin-card-name">📍 ${highlight(p.name, q)}</div>
             <div class="pin-card-coords">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</div>
+            ${p.description ? `<div class="pin-card-coords">${highlight(p.description.slice(0,40), q)}${p.description.length>40?'…':''}</div>` : ''}
             ${p.hasAudio ? '<div class="pin-card-audio">🔊 มีไฟล์เสียง</div>' : ''}
           </div>
           <div class="pin-card-btns">
-            <button class="icon-btn" title="แก้ไข"
+            <button type="button" class="icon-btn" title="แก้ไข"
               onclick="event.stopPropagation(); AdminApp.openEdit('${p.id}')">✏️</button>
-            <button class="icon-btn red" title="ลบ"
+            <button type="button" class="icon-btn red" title="ลบ"
               onclick="event.stopPropagation(); AdminApp.delPin('${p.id}')">🗑️</button>
           </div>
         </div>
       </div>`).join('');
+  }
+
+  function highlight(text, q) {
+    if (!q) return esc(text);
+    const safe = esc(text);
+    const safeQ = esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return safe.replace(new RegExp(safeQ, 'gi'),
+      m => `<span class="pin-card-highlight">${m}</span>`);
   }
 
   function addMarker(pin) {
@@ -248,10 +286,10 @@ const AdminApp = (() => {
     const rec = AudioManager.isRecording;
     const has = !!(newBlob || (!audioDeleted && prevBlob));
 
-    document.getElementById('recTimer').style.display  = rec  ? 'block'  : 'none';
-    document.getElementById('recWave').style.display   = rec  ? 'flex'   : 'none';
-    document.getElementById('recPlayBtn').style.display  = (!rec && has) ? 'flex' : 'none';
-    document.getElementById('recDelBtn').style.display   = (!rec && has) ? 'flex' : 'none';
+    document.getElementById('recTimer').classList.toggle('rec-hidden', !rec);
+    document.getElementById('recWave').classList.toggle('rec-hidden',  !rec);
+    document.getElementById('recPlayBtn').classList.toggle('rec-hidden', !(!rec && has));
+    document.getElementById('recDelBtn').classList.toggle('rec-hidden',  !(!rec && has));
     document.getElementById('recBtn').textContent = rec ? '⏹️' : '🎙️';
     document.getElementById('recBtn').title       = rec ? 'หยุดอัด' : 'เริ่มอัดเสียง';
     document.getElementById('recBtn').className  = 'rec-btn ' + (rec ? 'rec-stop' : 'rec-start');
@@ -261,28 +299,85 @@ const AdminApp = (() => {
   }
 
   /* ── Login ───────────────────────────────────────────────── */
+  const SYSTEM_PASS = 'Admin2569Nirat';
+
+  function hasAccount() {
+    return !!localStorage.getItem('vmAdminUser');
+  }
+
   function showLogin() {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('adminLayout').style.display = 'none';
-  }
+    document.getElementById('loginErr').textContent = '';
+    document.getElementById('unInput').value = '';
+    document.getElementById('pwInput').value = '';
 
-  function getPassword() { return localStorage.getItem('vmAdminPass') || 'AdminNirat2569'; }
+    const setup = !hasAccount();
+    document.getElementById('loginIcon').textContent      = setup ? '🛡️' : '🔐';
+    document.getElementById('loginTitle').textContent     = setup ? 'ตั้งค่าบัญชีผู้ดูแล' : 'แผงผู้ดูแลระบบ';
+    document.getElementById('loginSub').textContent       = setup
+      ? 'ตั้งชื่อผู้ใช้ของคุณและใส่รหัสผ่านระบบเพื่อยืนยัน'
+      : 'Voice Map Administration';
+    document.getElementById('loginSubmitBtn').textContent = setup ? 'สร้างบัญชี →' : 'เข้าสู่ระบบ →';
+    setTimeout(() => document.getElementById('unInput').focus(), 80);
+  }
 
   function tryLogin(e) {
     e.preventDefault();
-    const pw = document.getElementById('pwInput').value;
-    if (pw === getPassword()) {
-      sessionStorage.setItem('vmAuth', '1');
-      boot();
-    } else {
-      document.getElementById('loginErr').textContent = 'รหัสผ่านไม่ถูกต้อง';
+    const un  = document.getElementById('unInput').value.trim();
+    const pw  = document.getElementById('pwInput').value;
+    const err = document.getElementById('loginErr');
+
+    if (!un) { err.textContent = 'กรุณากรอกชื่อผู้ใช้'; return; }
+    if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน';  return; }
+
+    if (pw !== SYSTEM_PASS) {
+      err.textContent = 'รหัสผ่านไม่ถูกต้อง';
+      document.getElementById('pwInput').value = '';
+      document.getElementById('pwInput').focus();
+      return;
     }
+
+    if (!hasAccount()) {
+      /* ── First-time setup: save username ── */
+      localStorage.setItem('vmAdminUser', un);
+    } else {
+      /* ── Normal login: verify username ── */
+      const savedUn = localStorage.getItem('vmAdminUser') || '';
+      if (un !== savedUn) {
+        err.textContent = 'ชื่อผู้ใช้ไม่ถูกต้อง';
+        return;
+      }
+    }
+
+    sessionStorage.setItem('vmAuth', '1');
+    err.textContent = '';
+    boot();
   }
 
   /* ── Bind UI ─────────────────────────────────────────────── */
   function bindUI() {
     document.getElementById('addPinBtn').addEventListener('click', startAdd);
     document.getElementById('cancelAddBtn').addEventListener('click', cancelAdd);
+
+    /* Place search to add pin */
+    bindPlaceSearch();
+
+    /* Search existing pins */
+    const pinSearch = document.getElementById('pinSearch');
+    const pinSearchClear = document.getElementById('pinSearchClear');
+    pinSearch.addEventListener('input', () => {
+      searchQuery = pinSearch.value;
+      pinSearchClear.classList.toggle('rec-hidden', !searchQuery);
+      renderList();
+    });
+    pinSearchClear.addEventListener('click', () => {
+      pinSearch.value = '';
+      searchQuery = '';
+      pinSearchClear.classList.add('rec-hidden');
+      renderList();
+      pinSearch.focus();
+    });
     map.on('click', onMapClick);
 
     document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
@@ -296,6 +391,98 @@ const AdminApp = (() => {
     document.getElementById('recPlayBtn').addEventListener('click', playRec);
     document.getElementById('recDelBtn').addEventListener('click', deleteRec);
 
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      sessionStorage.removeItem('vmAuth');
+      showLogin();
+    });
+  }
+
+  /* ── Place Search → Add Pin ─────────────────────────────── */
+  let _psTimer = null;
+
+  function bindPlaceSearch() {
+    const input    = document.getElementById('placeSearchInput');
+    const clearBtn = document.getElementById('placeSearchClear');
+    const results  = document.getElementById('placeSearchResults');
+
+    input.addEventListener('input', () => {
+      const q = input.value.trim();
+      clearBtn.classList.toggle('rec-hidden', !q);
+      clearTimeout(_psTimer);
+      if (!q) { results.classList.add('rec-hidden'); return; }
+      results.innerHTML = '<div class="place-search-msg">กำลังค้นหา…</div>';
+      results.classList.remove('rec-hidden');
+      _psTimer = setTimeout(() => _psSearch(q), 420);
+    });
+
+    clearBtn.addEventListener('click', () => {
+      input.value = '';
+      clearBtn.classList.add('rec-hidden');
+      results.classList.add('rec-hidden');
+      input.focus();
+    });
+
+    document.addEventListener('click', e => {
+      if (!document.querySelector('.place-search-section').contains(e.target))
+        results.classList.add('rec-hidden');
+    });
+  }
+
+  async function _psSearch(query) {
+    const results = document.getElementById('placeSearchResults');
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&accept-language=th`;
+      const res  = await fetch(url, { headers: { 'User-Agent': 'VoiceMap/1.0' } });
+      const data = await res.json();
+
+      if (!data.length) {
+        results.innerHTML = '<div class="place-search-msg">ไม่พบสถานที่</div>';
+        return;
+      }
+
+      results.innerHTML = data.map(r => {
+        const parts = r.display_name.split(',');
+        const name  = parts[0].trim();
+        const addr  = parts.slice(1, 3).join(',').trim();
+        return `<div class="place-result-item"
+                     data-lat="${r.lat}" data-lon="${r.lon}"
+                     data-name="${escAttr(name)}">
+          <div class="place-result-name">${esc(name)}</div>
+          ${addr ? `<div class="place-result-addr">${esc(addr)}</div>` : ''}
+          <div class="place-result-actions">
+            <button type="button" class="place-result-fly">🗺️ ไปยังตำแหน่ง</button>
+            <button type="button" class="place-result-add">📍 เพิ่มหมุดที่นี่</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      results.querySelectorAll('.place-result-item').forEach(item => {
+        const lat  = parseFloat(item.dataset.lat);
+        const lng  = parseFloat(item.dataset.lon);
+        const name = item.dataset.name;
+
+        item.querySelector('.place-result-fly').addEventListener('click', () => {
+          map.flyTo([lat, lng], 17, { duration: 1 });
+          document.getElementById('placeSearchResults').classList.add('rec-hidden');
+        });
+
+        item.querySelector('.place-result-add').addEventListener('click', () => {
+          document.getElementById('placeSearchInput').value = '';
+          document.getElementById('placeSearchClear').classList.add('rec-hidden');
+          results.classList.add('rec-hidden');
+          map.flyTo([lat, lng], 17, { duration: 1 });
+          editPin = {
+            id: PinStorage.genId(), name,
+            description: '', lat, lng,
+            hasAudio: false, createdAt: Date.now()
+          };
+          newBlob = null; prevBlob = null; audioDeleted = false;
+          openModal(true);
+        });
+      });
+    } catch {
+      results.innerHTML = '<div class="place-search-msg">เกิดข้อผิดพลาด ลองใหม่</div>';
+    }
   }
 
   /* ── Helpers ─────────────────────────────────────────────── */
@@ -307,7 +494,11 @@ const AdminApp = (() => {
   }
 
   function esc(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function escAttr(s) {
+    return esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
   return { init, focusPin, openEdit, delPin };

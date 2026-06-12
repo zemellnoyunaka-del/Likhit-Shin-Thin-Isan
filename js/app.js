@@ -6,7 +6,7 @@ const App = (() => {
   /* State */
   let map, userMarker, accCircle;
   let watchId = null;
-  let userLat = null, userLng = null;
+  let userLat = null, userLng = null, userAcc = Infinity;
   let pins = [];
   const pinMarkers = new Map();
   const triggered = new Set();   // pins already triggered this visit
@@ -15,9 +15,8 @@ const App = (() => {
   let panelOpen = false;
   let activePin = null;
   let placeLat = null, placeLng = null;
-  let poiLayer = null;
-  let _poiTimer = null;
-  let _poiLoading = false;
+  let selectedLocMarker = null;
+  let streetLayer = null, satLayer = null, satLabelLayer = null, isSatellite = true;
 
   /* ── Boot ────────────────────────────────────────────────── */
   async function init() {
@@ -26,16 +25,31 @@ const App = (() => {
     map = L.map('map', { zoomControl: false, attributionControl: false })
            .setView([13.7563, 100.5018], 15);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      subdomains: 'abcd',
+    streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19, subdomains: 'abcd',
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>'
-    }).addTo(map);
+    });
+
+    satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: '© <a href="https://www.esri.com/">Esri</a>'
+    });
+
+    satLabelLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: '© <a href="https://www.esri.com/">Esri</a>'
+    });
+
+    // Default: satellite + labels
+    satLayer.addTo(map);
+    satLabelLayer.addTo(map);
+
+    const layerBtn = document.getElementById('layerToggle');
+    layerBtn.textContent = '🗺️';
+    layerBtn.classList.add('satellite');
 
     L.control.zoom({ position: 'topright' }).addTo(map);
     L.control.attribution({ position: 'bottomleft', prefix: '© OSM' }).addTo(map);
-
-    poiLayer = L.layerGroup().addTo(map);
 
     NavManager.init(map);
     MenuManager.init();
@@ -44,8 +58,6 @@ const App = (() => {
     startTracking();
     bindUI();
     map.on('click', onMapClick);
-    map.on('moveend', _schedulePOI);
-    _schedulePOI();
   }
 
   /* ── Pins ────────────────────────────────────────────────── */
@@ -83,17 +95,8 @@ const App = (() => {
       setText('statusText', 'ไม่รองรับ GPS');
       return;
     }
-    setText('statusText', 'กำลังขอสิทธิ์ GPS…');
-
-    if (navigator.permissions) {
-      navigator.permissions.query({ name: 'geolocation' }).then(perm => {
-        if (perm.state === 'denied') { _showGpsBanner(true); return; }
-        _startWatch();
-        perm.onchange = () => { if (perm.state === 'denied') _showGpsBanner(true); };
-      }).catch(_startWatch);
-    } else {
-      _startWatch();
-    }
+    setText('statusText', 'กำลังค้นหา GPS…');
+    _startWatch();
   }
 
   function _startWatch() {
@@ -105,32 +108,23 @@ const App = (() => {
   }
 
   function onPosition(pos) {
-    document.getElementById('gpsBanner').classList.remove('show');
     const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
-    userLat = lat; userLng = lng;
+    userLat = lat; userLng = lng; userAcc = acc;
 
     updateUserMarker(lat, lng, acc);
     checkProximity(lat, lng);
     updateNavPanel(lat, lng);
+    NavManager.updateRoute(lat, lng);
     setText('statusText', `±${Math.round(acc)} ม.`);
     document.getElementById('statusDot').classList.add('active');
+    document.getElementById('locateBtn').classList.add('active');
   }
 
   function onGeoErr(err) {
-    const denied = err?.code === 1;
     const msgs = { 1: 'ไม่ได้รับสิทธิ์ GPS', 2: 'ไม่พบสัญญาณ GPS', 3: 'GPS หมดเวลา' };
-    setText('statusText', msgs[err?.code] || 'GPS ผิดพลาด');
-    if (denied) _showGpsBanner(true);
-  }
-
-  function _showGpsBanner(denied) {
-    setText('gpsBannerTitle', denied ? 'ไม่ได้รับสิทธิ์ตำแหน่ง' : 'ต้องการตำแหน่งของคุณ');
-    setText('gpsBannerSub', denied
-      ? 'เปิดสิทธิ์ตำแหน่งในการตั้งค่าเบราว์เซอร์ แล้วกด "ลองใหม่"'
-      : 'แตะ "อนุญาต" เพื่อดูตำแหน่งและสถานที่รอบคุณ');
-    const btn = document.getElementById('gpsBannerBtn');
-    btn.textContent = denied ? 'ลองใหม่' : 'อนุญาต';
-    document.getElementById('gpsBanner').classList.add('show');
+    const msg = msgs[err?.code] || 'GPS ผิดพลาด';
+    setText('statusText', msg);
+    if (err?.code === 1) toast('กรุณาเปิดสิทธิ์ตำแหน่งในการตั้งค่าเบราว์เซอร์');
   }
 
   function updateUserMarker(lat, lng, acc) {
@@ -165,33 +159,17 @@ const App = (() => {
   }
 
   async function triggerAudio(pin, dist) {
-    /* Record visit regardless of whether there is audio */
     VisitHistory.record(pin);
     MenuManager.onVisit();
 
     const blob = await VoiceMapDB.getAudio(pin.id);
     if (!blob) return;
 
-    showNotif(pin, dist);
-
     try {
       await AudioManager.playBlob(blob);
     } catch {
-      // Autoplay blocked – user can tap play in notification
-      document.getElementById('notifPlayBtn').style.display = 'inline-block';
-      document.getElementById('notifPlayBtn')._blob = blob;
+      // Autoplay blocked silently
     }
-  }
-
-  function showNotif(pin, dist) {
-    setText('notifName', pin.name);
-    setText('notifDist', NavManager.fmtDist(dist));
-    document.getElementById('notifPlayBtn').style.display = 'none';
-
-    const el = document.getElementById('audioNotif');
-    el.classList.add('show');
-    clearTimeout(el._t);
-    el._t = setTimeout(() => el.classList.remove('show'), 7000);
   }
 
   /* ── Pin info bottom-sheet ───────────────────────────────── */
@@ -221,6 +199,7 @@ const App = (() => {
   /* ── Navigation ──────────────────────────────────────────── */
   async function startNav(pin) {
     if (!userLat) { toast('ยังไม่ได้รับสัญญาณ GPS'); return; }
+    if (userAcc > 150) { toast(`สัญญาณ GPS ยังไม่แม่นยำ (±${Math.round(userAcc)} ม.) รอสักครู่`); return; }
     closeSheet();
 
     // Show nav panel
@@ -239,6 +218,7 @@ const App = (() => {
 
   function stopNav() {
     NavManager.stopNavigation();
+    document.getElementById('navInstruction').classList.add('hidden');
     setEl('panelDefault', 'block');
     setEl('panelNav', 'none');
     collapsePanel();
@@ -246,9 +226,24 @@ const App = (() => {
 
   function updateNavPanel(lat, lng) {
     if (!NavManager.isNavigating) return;
-    const d = NavManager.destination;
-    if (!d) return;
-    setText('navDist', NavManager.fmtDist(NavManager.haversine(lat, lng, d.lat, d.lng)));
+    const info = NavManager.checkAndUpdate(lat, lng);
+    if (!info) return;
+
+    if (info.remainDist !== null) setText('navDist', NavManager.fmtDist(info.remainDist));
+
+    const instrEl   = document.getElementById('navInstruction');
+    const instrText = document.getElementById('navInstrText');
+    const instrArrow = document.getElementById('navInstrArrow');
+
+    if (info.instruction) {
+      instrEl.classList.remove('hidden');
+      instrArrow.textContent = info.arrow || '↑';
+      instrText.textContent  = info.instruction;
+    } else {
+      instrEl.classList.add('hidden');
+    }
+
+    if (info.arrived) setTimeout(stopNav, 3000);
   }
 
   /* ── Panel helpers ───────────────────────────────────────── */
@@ -261,23 +256,39 @@ const App = (() => {
     document.getElementById('panelHandle').addEventListener('click', () =>
       panelOpen ? collapsePanel() : expandPanel());
 
+    // Layer toggle
+    document.getElementById('layerToggle').addEventListener('click', () => {
+      isSatellite = !isSatellite;
+      if (isSatellite) {
+        map.removeLayer(streetLayer);
+        satLayer.addTo(map);
+        satLayer.bringToBack();
+        satLabelLayer.addTo(map);
+      } else {
+        map.removeLayer(satLayer);
+        map.removeLayer(satLabelLayer);
+        streetLayer.addTo(map);
+        streetLayer.bringToBack();
+      }
+      const btn = document.getElementById('layerToggle');
+      btn.textContent = isSatellite ? '🗺️' : '🛰️';
+      btn.classList.toggle('satellite', isSatellite);
+    });
+
+    // Locate button
+    document.getElementById('locateBtn').addEventListener('click', () => {
+      if (userLat !== null) {
+        map.flyTo([userLat, userLng], 17, { duration: 1.2 });
+      } else {
+        toast('กำลังค้นหาตำแหน่ง GPS…');
+        _startWatch();
+      }
+    });
+
     // Center button
     document.getElementById('centerBtn').addEventListener('click', () => {
       if (userLat) map.setView([userLat, userLng], 17);
-      else _showGpsBanner(false);
-    });
-
-    // GPS banner
-    document.getElementById('gpsBannerBtn').addEventListener('click', () => {
-      document.getElementById('gpsBanner').classList.remove('show');
-      watchId = null;
-      navigator.geolocation.getCurrentPosition(
-        pos => { onPosition(pos); _startWatch(); },
-        err => { onGeoErr(err); }
-      );
-    });
-    document.getElementById('gpsBannerClose').addEventListener('click', () => {
-      document.getElementById('gpsBanner').classList.remove('show');
+      else toast('กำลังค้นหาตำแหน่ง…');
     });
 
     // Pin sheet
@@ -292,18 +303,6 @@ const App = (() => {
       if (!activePin) return;
       const blob = await VoiceMapDB.getAudio(activePin.id);
       if (blob) AudioManager.playBlob(blob).catch(() => {});
-    });
-
-    // Notification
-    document.getElementById('notifClose').addEventListener('click', () => {
-      document.getElementById('audioNotif').classList.remove('show');
-      AudioManager.stopPlayback();
-    });
-    document.getElementById('notifPlayBtn').addEventListener('click', async function() {
-      if (this._blob) {
-        await AudioManager.playBlob(this._blob).catch(() => {});
-        this.style.display = 'none';
-      }
     });
 
     // Stop nav
@@ -325,51 +324,6 @@ const App = (() => {
     });
   }
 
-  /* ── POI Markers ─────────────────────────────────────────── */
-  function _schedulePOI() {
-    clearTimeout(_poiTimer);
-    _poiTimer = setTimeout(_loadPOI, 700);
-  }
-
-  async function _loadPOI() {
-    if (map.getZoom() < 14 || _poiLoading) return;
-    _poiLoading = true;
-    const c = map.getCenter();
-
-    /* Radius ≈ distance from center to corner of visible area, capped at 900 m */
-    const bounds = map.getBounds();
-    const cornerLat = bounds.getNorth(), cornerLng = bounds.getEast();
-    const radius = Math.min(900, Math.round(NavManager.haversine(c.lat, c.lng, cornerLat, cornerLng) * 0.65));
-
-    const elements = await PlaceInfo.fetchAround(c.lat, c.lng, radius);
-    poiLayer.clearLayers();
-
-    elements.forEach(el => {
-      const pos = PlaceInfo.getLatLng(el);
-      if (!pos) return;
-      const tags  = el.tags || {};
-      const emoji = PlaceInfo.poiIcon(tags);
-      const color = PlaceInfo.poiColor(tags);
-      const name  = (tags['name:th'] || tags.name || '').slice(0, 12);
-
-      const icon = L.divIcon({
-        className: '',
-        html: `<div class="poi-pin">
-                 <div class="poi-pin-dot" style="background:${color}">${emoji}</div>
-                 ${name ? `<div class="poi-pin-label">${_esc(name)}</div>` : ''}
-               </div>`,
-        iconSize: [64, 52],
-        iconAnchor: [32, 38]
-      });
-
-      L.marker([pos.lat, pos.lng], { icon, zIndexOffset: 100 })
-       .on('click', e => { L.DomEvent.stopPropagation(e); closeSheet(); _populatePlaceSheet(el); })
-       .addTo(poiLayer);
-    });
-
-    _poiLoading = false;
-  }
-
   /* ── Place Info Sheet (OSM POI) ─────────────────────────── */
   async function onMapClick(e) {
     closeSheet();
@@ -387,7 +341,9 @@ const App = (() => {
   }
 
   function _placeSheetLoading() {
-    document.getElementById('placePhotoWrap').classList.add('hidden');
+    document.getElementById('gmapsFrame').src = '';
+    document.getElementById('placePhotoPanel').classList.add('hidden');
+    document.getElementById('placePhoto').src = '';
     document.getElementById('placeCategoryBadge').textContent = '';
     document.getElementById('placeTitle').textContent = '';
     document.getElementById('placeInfoList').innerHTML =
@@ -403,9 +359,21 @@ const App = (() => {
     placeLat = pos?.lat ?? null;
     placeLng = pos?.lng ?? null;
 
+    /* Place pin on map */
+    if (placeLat !== null) _placeSelectedPin(placeLat, placeLng);
+
     document.getElementById('placeCategoryBadge').textContent = PlaceInfo.categoryLabel(tags);
-    document.getElementById('placeTitle').textContent =
-      tags['name:th'] || tags.name || '(ไม่ระบุชื่อ)';
+    const name = tags['name:th'] || tags.name || '(ไม่ระบุชื่อ)';
+    document.getElementById('placeTitle').textContent = name;
+
+    /* Google Maps iframe */
+    if (placeLat !== null) {
+      const q = name !== '(ไม่ระบุชื่อ)'
+        ? `${encodeURIComponent(name)}+${placeLat},${placeLng}`
+        : `${placeLat},${placeLng}`;
+      document.getElementById('gmapsFrame').src =
+        `https://maps.google.com/maps?q=${q}&z=17&output=embed&hl=th`;
+    }
 
     /* Info rows */
     const rows = [];
@@ -433,17 +401,41 @@ const App = (() => {
       mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${placeLat},${placeLng}`;
     }
 
-    /* Photo (async – non-blocking) */
-    PlaceInfo.getWikiPhoto(tags).then(url => {
+    /* Photo (async) */
+    const photoPanel = document.getElementById('placePhotoPanel');
+    const photoImg   = document.getElementById('placePhoto');
+    photoPanel.classList.add('hidden');
+    photoImg.src = '';
+    PlaceInfo.getPlacePhoto(tags).then(url => {
       if (!url) return;
-      const wrap = document.getElementById('placePhotoWrap');
-      document.getElementById('placePhoto').src = url;
-      wrap.classList.remove('hidden');
+      photoImg.onload  = () => photoPanel.classList.remove('hidden');
+      photoImg.onerror = () => {};
+      photoImg.src = url;
     });
+
+    document.getElementById('placeSheet').classList.add('show');
+  }
+
+  function _placeSelectedPin(lat, lng) {
+    const ll = [lat, lng];
+    if (selectedLocMarker) {
+      selectedLocMarker.setLatLng(ll);
+    } else {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40" class="sel-pin-svg">
+        <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.27 21.73 0 14 0z" fill="#e53e3e" stroke="#fff" stroke-width="1.5"/>
+        <circle cx="14" cy="14" r="6" fill="#fff"/>
+      </svg>`;
+      const icon = L.divIcon({ className: '', html: svg, iconSize: [28, 40], iconAnchor: [14, 40] });
+      selectedLocMarker = L.marker(ll, { icon, zIndexOffset: 800 }).addTo(map);
+    }
   }
 
   function closePlaceSheet() {
     document.getElementById('placeSheet').classList.remove('show');
+    document.getElementById('gmapsFrame').src = '';
+    document.getElementById('placePhotoPanel').classList.add('hidden');
+    document.getElementById('placePhoto').src = '';
+    if (selectedLocMarker) { map.removeLayer(selectedLocMarker); selectedLocMarker = null; }
     placeLat = null; placeLng = null;
   }
 

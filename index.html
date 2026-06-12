@@ -76,27 +76,7 @@
 <!-- ══ Search Results (floating dropdown) ═══════════════════ -->
 <div class="search-results hidden" id="searchResults"></div>
 
-<!-- ══ GPS Permission Banner ═════════════════════════════════ -->
-<div class="gps-banner" id="gpsBanner">
-  <div class="gps-banner-icon">📍</div>
-  <div class="gps-banner-body">
-    <div class="gps-banner-title" id="gpsBannerTitle">ต้องการตำแหน่งของคุณ</div>
-    <div class="gps-banner-sub" id="gpsBannerSub">แตะ "อนุญาต" เพื่อดูแผนที่รอบคุณ</div>
-  </div>
-  <button type="button" class="gps-banner-btn" id="gpsBannerBtn">อนุญาต</button>
-  <button type="button" class="gps-banner-close" id="gpsBannerClose">✕</button>
-</div>
 
-<!-- ══ Audio Notification Banner ════════════════════════════ -->
-<div class="audio-notif" id="audioNotif">
-  <div class="notif-icon">🔊</div>
-  <div class="notif-body">
-    <div class="notif-sub">เดินทางถึงจุดพิเศษ · <span id="notifDist"></span></div>
-    <div class="notif-name" id="notifName">–</div>
-  </div>
-  <button id="notifPlayBtn" style="display:none; background:rgba(0,0,0,.2); border:none; border-radius:8px; padding:5px 10px; color:#fff; cursor:pointer; font-size:.78rem; margin-right:4px;">▶ เล่น</button>
-  <button class="notif-close" id="notifClose">✕</button>
-</div>
 
 <!-- ══ Bottom Panel ══════════════════════════════════════════ -->
 <div class="bottom-panel" id="bottomPanel">
@@ -114,13 +94,17 @@
 
   <!-- Navigating -->
   <div id="panelNav" style="display:none;">
+    <div class="nav-instruction hidden" id="navInstruction">
+      <div class="nav-instr-arrow" id="navInstrArrow">↑</div>
+      <div class="nav-instr-text" id="navInstrText"></div>
+    </div>
     <div class="nav-box">
       <div class="nav-box-label">🧭 นำทางไปยัง</div>
       <div class="nav-box-dest" id="navDest">–</div>
       <div class="nav-stats">
         <div>
           <div class="nav-stat-val" id="navDist">–</div>
-          <div class="nav-stat-label">ระยะทาง</div>
+          <div class="nav-stat-label">ระยะเหลือ</div>
         </div>
         <div>
           <div class="nav-stat-val" id="navTime">–</div>
@@ -155,9 +139,6 @@
 <!-- ══ Place Info Sheet (OSM POI) ════════════════════════════ -->
 <div class="sheet-overlay" id="placeSheet">
   <div class="sheet-card place-sheet-card">
-    <div class="place-photo-wrap hidden" id="placePhotoWrap">
-      <img class="place-photo" id="placePhoto" src="" alt="">
-    </div>
     <div class="place-sheet-header">
       <div class="place-sheet-meta">
         <div class="place-category-badge" id="placeCategoryBadge"></div>
@@ -165,13 +146,27 @@
       </div>
       <button type="button" class="sheet-close-btn" id="placeClose">✕</button>
     </div>
-    <div class="place-info-list" id="placeInfoList"></div>
+    <div class="place-body-row">
+      <div class="place-photo-panel hidden" id="placePhotoPanel">
+        <img id="placePhoto" src="" alt="">
+      </div>
+      <div class="place-info-list" id="placeInfoList"></div>
+    </div>
     <div class="place-sheet-actions">
       <button type="button" class="btn btn-primary place-nav-btn" id="placeNavBtn">🧭 นำทาง</button>
       <a class="btn btn-outline" id="placeMapsLink" href="#" target="_blank" rel="noopener">🗺️ Google Maps</a>
     </div>
+    <div class="gmaps-wrap" id="gmapsWrap">
+      <iframe id="gmapsFrame" title="Google Maps" src="" frameborder="0" allowfullscreen loading="lazy"></iframe>
+    </div>
   </div>
 </div>
+
+<!-- ══ Locate Button ══════════════════════════════════════════ -->
+<button type="button" class="locate-btn" id="locateBtn" title="ตำแหน่งของฉัน">📍</button>
+
+<!-- ══ Layer Toggle ═══════════════════════════════════════════ -->
+<button type="button" class="layer-toggle" id="layerToggle" title="สลับแผนที่ดาวเทียม">🗺️</button>
 
 <!-- ══ Admin FAB ══════════════════════════════════════════════ -->
 <a href="admin.html" class="fab" title="แผงผู้ดูแลระบบ">⚙️</a>

@@ -22,6 +22,7 @@ const App = (() => {
   /* ── Boot ────────────────────────────────────────────────── */
   async function init() {
     await VoiceMapDB.init();
+    await SeedData.run();
 
     map = L.map('map', { zoomControl: false, attributionControl: false })
            .setView([13.7563, 100.5018], 15);
@@ -151,12 +152,14 @@ const App = (() => {
   function checkProximity(lat, lng) {
     if (currentPage !== 'voicemap') return;
     pins.forEach(pin => {
-      const d = NavManager.haversine(lat, lng, pin.lat, pin.lng);
+      const d      = NavManager.haversine(lat, lng, pin.lat, pin.lng);
+      const trigR  = pin.radius  || PROX_M;
+      const resetR = trigR * (AWAY_M / PROX_M);   // keeps same ratio as global default
 
-      if (d <= PROX_M && !triggered.has(pin.id)) {
+      if (d <= trigR && !triggered.has(pin.id)) {
         triggered.add(pin.id);
         triggerAudio(pin, d);
-      } else if (d > AWAY_M && triggered.has(pin.id)) {
+      } else if (d > resetR && triggered.has(pin.id)) {
         triggered.delete(pin.id);   // allow re-trigger when user returns
       }
     });

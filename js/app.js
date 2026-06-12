@@ -192,16 +192,40 @@ const App = (() => {
       distEl.textContent = '–';
     }
 
-    // Show/hide play button based on audio
+    // Reset play button to loading state while we check for audio
+    const playBtn = document.getElementById('sheetPlayBtn');
+    _resetPlayBtn(playBtn);
+    playBtn.textContent = '⏳';
+    playBtn.style.display = 'inline-flex';
+    playBtn.disabled = true;
+
     VoiceMapDB.hasAudio(pin.id).then(has => {
-      document.getElementById('sheetPlayBtn').style.display = has ? 'inline-flex' : 'none';
+      if (activePin?.id !== pin.id) return; // sheet was replaced before check finished
+      if (has) {
+        playBtn.textContent = '🔊 ฟังเสียง';
+        playBtn.disabled = false;
+      } else {
+        playBtn.style.display = 'none';
+      }
     });
 
     document.getElementById('pinSheet').classList.add('show');
     map.panTo([pin.lat, pin.lng]);
   }
 
-  function closeSheet() { document.getElementById('pinSheet').classList.remove('show'); activePin = null; }
+  function _resetPlayBtn(btn) {
+    AudioManager.stopPlayback();
+    btn = btn || document.getElementById('sheetPlayBtn');
+    btn.textContent = '🔊 ฟังเสียง';
+    btn.disabled = false;
+    btn.dataset.playing = '';
+  }
+
+  function closeSheet() {
+    _resetPlayBtn();
+    document.getElementById('pinSheet').classList.remove('show');
+    activePin = null;
+  }
 
   /* ── Navigation ──────────────────────────────────────────── */
   async function startNav(pin) {
@@ -308,8 +332,39 @@ const App = (() => {
     });
     document.getElementById('sheetPlayBtn').addEventListener('click', async () => {
       if (!activePin) return;
+      const btn = document.getElementById('sheetPlayBtn');
+
+      // Toggle: stop if already playing
+      if (btn.dataset.playing === '1') {
+        _resetPlayBtn(btn);
+        return;
+      }
+
+      btn.textContent = '⏳ กำลังโหลด…';
+      btn.disabled = true;
+
       const blob = await VoiceMapDB.getAudio(activePin.id);
-      if (blob) AudioManager.playBlob(blob).catch(() => {});
+      if (!blob) { btn.textContent = '🔊 ฟังเสียง'; btn.disabled = false; return; }
+
+      btn.textContent = '⏸️ หยุดเล่น';
+      btn.dataset.playing = '1';
+      btn.disabled = false;
+
+      try {
+        const audio = await AudioManager.playBlob(blob);
+        if (audio) {
+          audio.addEventListener('ended', () => {
+            if (btn.dataset.playing === '1') {
+              btn.textContent = '🔊 ฟังเสียง';
+              btn.dataset.playing = '';
+            }
+          });
+        }
+      } catch {
+        btn.textContent = '🔊 ฟังเสียง';
+        btn.dataset.playing = '';
+        btn.disabled = false;
+      }
     });
 
     // Stop nav

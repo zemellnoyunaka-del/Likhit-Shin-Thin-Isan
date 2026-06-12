@@ -89,7 +89,7 @@ const App = (() => {
     const m = L.marker([pin.lat, pin.lng], { icon })
                .on('click', () => showPinSheet(pin));
 
-    if (currentPage === 'voicemap') m.addTo(map);
+    if (currentPage !== 'home') m.addTo(map);
     pinMarkers.set(pin.id, m);
   }
 
@@ -420,9 +420,9 @@ const App = (() => {
     document.getElementById('leftPanel').classList.toggle('hidden', !isVoice);
     document.getElementById('bottomPanel').classList.toggle('hidden', !isVoice);
 
-    // Voice pin markers on map
+    // Pin markers visible on all map pages (map + voicemap), hidden on home
     pinMarkers.forEach(marker => {
-      if (isVoice) {
+      if (isMapPage) {
         if (!map.hasLayer(marker)) marker.addTo(map);
       } else {
         if (map.hasLayer(marker)) map.removeLayer(marker);

@@ -9,7 +9,7 @@ const SeedData = (() => {
     {
       pin: {
         id:          'pin_seed_001',
-        name:        'จุดพิเศษ',
+        name:        'โรงเรียนเทศบาลวัดกลาง',
         description: '',
         lat:         16.41326201980522,
         lng:         102.83149808400525,
@@ -28,8 +28,13 @@ const SeedData = (() => {
   }
 
   async function _seedOne({ pin, audioFile }) {
-    // ถ้ามี pin นี้อยู่แล้วให้ข้าม
-    if (PinStorage.getAll().some(p => p.id === pin.id)) return;
+    const existing = PinStorage.getAll().find(p => p.id === pin.id);
+
+    // อัปเดตชื่อถ้าชื่อเปลี่ยน (migration)
+    if (existing) {
+      if (existing.name !== pin.name) PinStorage.update(pin.id, { name: pin.name });
+      return;
+    }
 
     // บันทึก pin metadata
     PinStorage.add({ ...pin, createdAt: Date.now() });

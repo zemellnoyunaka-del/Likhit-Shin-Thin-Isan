@@ -17,6 +17,7 @@ const App = (() => {
   let placeLat = null, placeLng = null;
   let selectedLocMarker = null;
   let streetLayer = null, satLayer = null, satLabelLayer = null, isSatellite = true;
+  let currentPage = 'home';
 
   /* ── Boot ────────────────────────────────────────────────── */
   async function init() {
@@ -58,6 +59,8 @@ const App = (() => {
     startTracking();
     bindUI();
     map.on('click', onMapClick);
+
+    switchPage('home');
   }
 
   /* ── Pins ────────────────────────────────────────────────── */
@@ -83,9 +86,9 @@ const App = (() => {
     });
 
     const m = L.marker([pin.lat, pin.lng], { icon })
-               .addTo(map)
                .on('click', () => showPinSheet(pin));
 
+    if (currentPage === 'voicemap') m.addTo(map);
     pinMarkers.set(pin.id, m);
   }
 
@@ -137,7 +140,7 @@ const App = (() => {
       });
       userMarker = L.marker(ll, { icon, zIndexOffset: 1000 }).addTo(map);
       accCircle  = L.circle(ll, { radius: acc, color: '#4f46e5', fillColor: '#4f46e5', fillOpacity: .05, weight: 1, opacity: .25 }).addTo(map);
-      map.setView(ll, 17);
+      if (currentPage !== 'home') map.setView(ll, 17);
     } else {
       userMarker.setLatLng(ll);
       accCircle.setLatLng(ll).setRadius(acc);
@@ -146,6 +149,7 @@ const App = (() => {
 
   /* ── Proximity detection ─────────────────────────────────── */
   function checkProximity(lat, lng) {
+    if (currentPage !== 'voicemap') return;
     pins.forEach(pin => {
       const d = NavManager.haversine(lat, lng, pin.lat, pin.lng);
 
@@ -322,6 +326,106 @@ const App = (() => {
       closePlaceSheet();
       startNav({ lat: placeLat, lng: placeLng, name });
     });
+
+    // Bottom nav
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => switchPage(item.dataset.page));
+    });
+
+    // Home page action buttons
+    document.getElementById('homeGoMap').addEventListener('click',   () => switchPage('map'));
+    document.getElementById('homeGoVoice').addEventListener('click', () => switchPage('voicemap'));
+  }
+
+  /* ── Page switching ──────────────────────────────────────── */
+  function switchPage(page) {
+    currentPage = page;
+    const isHome    = page === 'home';
+    const isVoice   = page === 'voicemap';
+    const isMapPage = !isHome;
+
+    // Home overlay
+    document.getElementById('pageHome').classList.toggle('page-out', !isHome);
+
+    // Map UI (both map pages)
+    document.getElementById('topBar').classList.toggle('hidden', isHome);
+    document.getElementById('locateBtn').classList.toggle('hidden', isHome);
+    document.getElementById('layerToggle').classList.toggle('hidden', isHome);
+    document.querySelector('.fab').classList.toggle('hidden', isHome);
+
+    // Row1 (logo + GPS) — voice map only
+    document.getElementById('topBarRow1').classList.toggle('hidden', !isVoice);
+
+    // Voice-map-only elements
+    document.getElementById('menuToggle').classList.toggle('hidden', !isVoice);
+    document.getElementById('leftOverlay').classList.toggle('hidden', !isVoice);
+    document.getElementById('leftPanel').classList.toggle('hidden', !isVoice);
+    document.getElementById('bottomPanel').classList.toggle('hidden', !isVoice);
+
+    // Voice pin markers on map
+    pinMarkers.forEach(marker => {
+      if (isVoice) {
+        if (!map.hasLayer(marker)) marker.addTo(map);
+      } else {
+        if (map.hasLayer(marker)) map.removeLayer(marker);
+      }
+    });
+
+    // Close panels when leaving voice map
+    if (!isVoice) {
+      closeSheet();
+      MenuManager.close();
+      if (NavManager.isNavigating) stopNav();
+    }
+
+    // Close place sheet when going home
+    if (isHome) closePlaceSheet();
+
+    // Update search results position after layout changes
+    if (isMapPage) {
+      setTimeout(() => {
+        const tb = document.getElementById('topBar');
+        const sr = document.getElementById('searchResults');
+        sr.style.top = (tb.getBoundingClientRect().bottom + 4) + 'px';
+        map.invalidateSize();
+        if (userLat !== null) map.setView([userLat, userLng], map.getZoom());
+      }, 50);
+    }
+
+    // Nav active state
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.classList.toggle('active', item.dataset.page === page);
+    });
+
+    if (isHome) updateHomeStats();
+  }
+
+  /* ── Home page stats ─────────────────────────────────────── */
+  function updateHomeStats() {
+    document.getElementById('homePinCount').textContent  = pins.length;
+    const history = VisitHistory.getAll();
+    document.getElementById('homeVisitCount').textContent = history.length;
+
+    const list = document.getElementById('homeRecentList');
+    if (!history.length) {
+      list.innerHTML = '<div class="home-recent-empty">ยังไม่มีประวัติการเดินทาง<br>ออกเดินทางแล้วบันทึกอัตโนมัติ</div>';
+      return;
+    }
+    list.innerHTML = history.slice(0, 5).map(entry => {
+      const diff = Date.now() - entry.visitedAt;
+      let when;
+      if (diff < 60_000)       when = 'เพิ่งเยี่ยมชม';
+      else if (diff < 3_600_000) when = `${Math.floor(diff/60_000)} นาทีที่แล้ว`;
+      else if (diff < 86_400_000) when = `${Math.floor(diff/3_600_000)} ชั่วโมงที่แล้ว`;
+      else when = new Date(entry.visitedAt).toLocaleDateString('th-TH', { day:'numeric', month:'short' });
+      return `<div class="home-recent-item">
+        <span class="home-recent-icon">📍</span>
+        <div class="home-recent-body">
+          <div class="home-recent-name">${_esc(entry.pinName)}</div>
+          <div class="home-recent-time">${when}</div>
+        </div>
+      </div>`;
+    }).join('');
   }
 
   /* ── Place Info Sheet (OSM POI) ─────────────────────────── */

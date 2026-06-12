@@ -9,19 +9,73 @@
 </head>
 <body>
 
-<!-- ══ Map ══════════════════════════════════════════════════ -->
+<!-- ══ Map (always behind) ══════════════════════════════════ -->
 <div id="map"></div>
 
-<!-- ══ Hamburger Menu Toggle ════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: หน้าหลัก
+     ══════════════════════════════════════════════════════════ -->
+<div id="pageHome" class="page-home">
+  <div class="home-scroll">
+
+    <!-- Hero -->
+    <div class="home-hero">
+      <div class="home-logo-icon">🗺️</div>
+      <h1 class="home-title">Voice Map</h1>
+      <p class="home-subtitle">แผนที่เสียงพูดได้</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="home-stats">
+      <div class="stat-card">
+        <div class="stat-val" id="homePinCount">–</div>
+        <div class="stat-label">📌 หมุดเสียง</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="homeVisitCount">–</div>
+        <div class="stat-label">🔊 เยี่ยมชม</div>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="home-actions">
+      <button type="button" class="home-btn" id="homeGoMap">
+        <span class="home-btn-icon">🗺️</span>
+        <div class="home-btn-body">
+          <div class="home-btn-title">แผนที่</div>
+          <div class="home-btn-sub">สำรวจแผนที่ดาวเทียม</div>
+        </div>
+        <span class="home-btn-arrow">›</span>
+      </button>
+      <button type="button" class="home-btn home-btn-accent" id="homeGoVoice">
+        <span class="home-btn-icon">🔊</span>
+        <div class="home-btn-body">
+          <div class="home-btn-title">Voice Map</div>
+          <div class="home-btn-sub">ค้นหาหมุดเสียงรอบตัว</div>
+        </div>
+        <span class="home-btn-arrow">›</span>
+      </button>
+    </div>
+
+    <!-- Recent visits -->
+    <div class="home-section">
+      <div class="home-section-title">📜 เยี่ยมชมล่าสุด</div>
+      <div id="homeRecentList"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SHARED MAP UI (แผนที่ + Voice Map pages)
+     ══════════════════════════════════════════════════════════ -->
+
+<!-- Hamburger (Voice Map only) -->
 <button type="button" class="menu-toggle" id="menuToggle" title="เมนู">☰</button>
 
-<!-- ══ Left Panel Overlay ═══════════════════════════════════ -->
+<!-- Left Panel Overlay + Panel (Voice Map only) -->
 <div class="left-overlay" id="leftOverlay"></div>
-
-<!-- ══ Left Panel ════════════════════════════════════════════ -->
 <div class="left-panel" id="leftPanel">
-
-  <!-- Header -->
   <div class="lp-header">
     <div class="lp-header-title">
       <div class="lp-header-icon">🗺️</div>
@@ -29,33 +83,20 @@
     </div>
     <button class="lp-close" id="leftPanelClose" title="ปิด">✕</button>
   </div>
-
-  <!-- Tab Bar -->
   <div class="lp-tabs">
     <button class="lp-tab active" data-tab="history">📜 ประวัติการเดินทาง</button>
     <button class="lp-tab" data-tab="wanderer">🧭 ผู้พเนจร</button>
   </div>
-
-  <!-- Scrollable Body -->
   <div class="lp-body">
-
-    <!-- ── ประวัติการเดินทาง ────────────────────────────── -->
-    <div class="lp-pane active" id="paneHistory">
-      <!-- rendered by menu.js -->
-    </div>
-
-    <!-- ── ผู้พเนจร ────────────────────────────────────── -->
-    <div class="lp-pane" id="paneWanderer">
-      <!-- rendered by menu.js -->
-    </div>
-
+    <div class="lp-pane active" id="paneHistory"></div>
+    <div class="lp-pane"       id="paneWanderer"></div>
   </div>
 </div>
 
-<!-- ══ Top Bar ══════════════════════════════════════════════ -->
+<!-- Top Bar -->
 <div class="top-bar" id="topBar">
-  <!-- Row 1: logo + GPS -->
-  <div class="top-bar-row1">
+  <!-- Row 1: logo + GPS (Voice Map only) -->
+  <div class="top-bar-row1" id="topBarRow1">
     <div class="app-logo">
       <div class="app-logo-icon">🗺️</div>
       <span class="app-logo-text">Voice Map</span>
@@ -65,7 +106,7 @@
       <span id="statusText">กำลังค้นหา GPS…</span>
     </div>
   </div>
-  <!-- Row 2: search -->
+  <!-- Row 2: search (always when map/voice map) -->
   <div class="top-bar-search">
     <span class="search-icon">🔍</span>
     <input type="text" class="search-input" id="searchInput" placeholder="ค้นหาสถานที่…" autocomplete="off">
@@ -73,16 +114,12 @@
   </div>
 </div>
 
-<!-- ══ Search Results (floating dropdown) ═══════════════════ -->
+<!-- Search Results -->
 <div class="search-results hidden" id="searchResults"></div>
 
-
-
-<!-- ══ Bottom Panel ══════════════════════════════════════════ -->
+<!-- Bottom Panel (Voice Map only) -->
 <div class="bottom-panel" id="bottomPanel">
   <div class="panel-handle" id="panelHandle"></div>
-
-  <!-- Default -->
   <div id="panelDefault">
     <div class="panel-hint" id="pinCountText">กำลังโหลด…</div>
     <div class="panel-actions">
@@ -91,23 +128,21 @@
       </button>
     </div>
   </div>
-
-  <!-- Navigating -->
   <div id="panelNav" style="display:none;">
     <div class="nav-instruction hidden" id="navInstruction">
       <div class="nav-instr-arrow" id="navInstrArrow">↑</div>
-      <div class="nav-instr-text" id="navInstrText"></div>
+      <div class="nav-instr-text"  id="navInstrText"></div>
     </div>
     <div class="nav-box">
       <div class="nav-box-label">🧭 นำทางไปยัง</div>
       <div class="nav-box-dest" id="navDest">–</div>
       <div class="nav-stats">
         <div>
-          <div class="nav-stat-val" id="navDist">–</div>
+          <div class="nav-stat-val"   id="navDist">–</div>
           <div class="nav-stat-label">ระยะเหลือ</div>
         </div>
         <div>
-          <div class="nav-stat-val" id="navTime">–</div>
+          <div class="nav-stat-val"   id="navTime">–</div>
           <div class="nav-stat-label">เวลาโดยประมาณ</div>
         </div>
       </div>
@@ -116,27 +151,26 @@
   </div>
 </div>
 
-<!-- ══ Pin Info Bottom Sheet ════════════════════════════════ -->
+<!-- Pin Info Sheet (Voice Map only) -->
 <div class="sheet-overlay" id="pinSheet">
   <div class="sheet-card">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
       <div class="sheet-title" id="sheetTitle">ชื่อสถานที่</div>
-      <button id="sheetClose" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;">✕</button>
+      <button type="button" id="sheetClose" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;">✕</button>
     </div>
     <div class="sheet-desc" id="sheetDesc"></div>
     <div class="sheet-meta">
-      <span>📏</span>
-      <span>ระยะห่าง:</span>
-      <strong style="color:#fff;" id="sheetDist">–</strong>
+      <span>📏</span><span>ระยะห่าง:</span>
+      <strong id="sheetDist">–</strong>
     </div>
     <div class="sheet-actions">
-      <button class="btn btn-primary" id="sheetNavBtn" style="flex:1;">🧭 นำทาง</button>
-      <button class="btn btn-outline" id="sheetPlayBtn" style="display:none;">🔊 ฟังเสียง</button>
+      <button type="button" class="btn btn-primary" id="sheetNavBtn" style="flex:1;">🧭 นำทาง</button>
+      <button type="button" class="btn btn-outline" id="sheetPlayBtn" style="display:none;">🔊 ฟังเสียง</button>
     </div>
   </div>
 </div>
 
-<!-- ══ Place Info Sheet (OSM POI) ════════════════════════════ -->
+<!-- Place Info Sheet (both map pages) -->
 <div class="sheet-overlay" id="placeSheet">
   <div class="sheet-card place-sheet-card">
     <div class="place-sheet-header">
@@ -162,17 +196,35 @@
   </div>
 </div>
 
-<!-- ══ Locate Button ══════════════════════════════════════════ -->
-<button type="button" class="locate-btn" id="locateBtn" title="ตำแหน่งของฉัน">📍</button>
+<!-- Floating buttons (map + voice map pages) -->
+<button type="button" class="locate-btn"  id="locateBtn"    title="ตำแหน่งของฉัน">📍</button>
+<button type="button" class="layer-toggle" id="layerToggle" title="สลับแผนที่">🗺️</button>
+<a href="admin.html"  class="fab"                           title="แผงผู้ดูแลระบบ">⚙️</a>
 
-<!-- ══ Layer Toggle ═══════════════════════════════════════════ -->
-<button type="button" class="layer-toggle" id="layerToggle" title="สลับแผนที่ดาวเทียม">🗺️</button>
-
-<!-- ══ Admin FAB ══════════════════════════════════════════════ -->
-<a href="admin.html" class="fab" title="แผงผู้ดูแลระบบ">⚙️</a>
-
-<!-- ══ Toast ══════════════════════════════════════════════════ -->
+<!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- ══ Bottom Navigation ═════════════════════════════════════ -->
+<nav class="bottom-nav" id="bottomNav">
+  <!-- Visible only on desktop sidebar -->
+  <div class="sidebar-logo" aria-hidden="true">
+    <span class="sidebar-logo-icon">🗺️</span>
+    <span class="sidebar-logo-text">Voice Map</span>
+  </div>
+
+  <button class="nav-item active" data-page="home">
+    <span class="nav-icon">🏠</span>
+    <span class="nav-label">หน้าหลัก</span>
+  </button>
+  <button class="nav-item" data-page="map">
+    <span class="nav-icon">🗺️</span>
+    <span class="nav-label">แผนที่</span>
+  </button>
+  <button class="nav-item" data-page="voicemap">
+    <span class="nav-icon">🔊</span>
+    <span class="nav-label">Voice Map</span>
+  </button>
+</nav>
 
 <!-- ══ Scripts ══════════════════════════════════════════════ -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

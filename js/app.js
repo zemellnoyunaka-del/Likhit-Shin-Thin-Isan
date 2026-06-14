@@ -12,7 +12,6 @@ const App = (() => {
   const triggered = new Set();   // pins already triggered this visit
   const PROX_M  = 50;            // trigger radius (metres)
   const AWAY_M  = 120;           // reset radius (metres)
-  let panelOpen = false;
   let activePin = null;
   let placeLat = null, placeLng = null;
   let selectedLocMarker = null;
@@ -21,6 +20,7 @@ const App = (() => {
 
   /* ── Boot ────────────────────────────────────────────────── */
   async function init() {
+    I18n.apply();   // apply saved language before anything renders
     await VoiceMapDB.init();
     await SeedData.run();
 
@@ -50,28 +50,45 @@ const App = (() => {
     layerBtn.textContent = '🗺️';
     layerBtn.classList.add('satellite');
 
-    L.control.zoom({ position: 'topright' }).addTo(map);
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
     L.control.attribution({ position: 'bottomleft', prefix: '© OSM' }).addTo(map);
 
     NavManager.init(map);
     MenuManager.init();
+    PoiOverlay.init(map);
 
     loadPins();
     startTracking();
     bindUI();
     map.on('click', onMapClick);
 
-    switchPage('home');
+    /* Re-apply translations whenever language changes */
+    document.addEventListener('langchange', () => {
+      I18n.apply();
+      _refreshDynamicText();
+    });
+
+    switchPage('map');
+  }
+
+  function _refreshDynamicText() {
+    /* GPS status */
+    if (userLat === null) setText('statusText', I18n.t('gps.searching'));
+    /* Play button state (if sheet is open) */
+    const playBtn = document.getElementById('sheetPlayBtn');
+    if (playBtn.dataset.playing === '1') {
+      playBtn.textContent = I18n.t('sheet.playing');
+    } else if (playBtn.style.display !== 'none') {
+      playBtn.textContent = I18n.t('sheet.play');
+    }
+    /* Home stats if visible */
+    if (currentPage === 'home') updateHomeStats();
   }
 
   /* ── Pins ────────────────────────────────────────────────── */
   function loadPins() {
     pins = PinStorage.getAll();
     pins.forEach(addMarker);
-    const el = document.getElementById('pinCountText');
-    if (el) el.textContent = pins.length
-      ? `${pins.length} จุดพิเศษบนแผนที่`
-      : 'ยังไม่มีจุดพิเศษ';
   }
 
   function addMarker(pin) {
@@ -96,10 +113,10 @@ const App = (() => {
   /* ── GPS ─────────────────────────────────────────────────── */
   function startTracking() {
     if (!navigator.geolocation) {
-      setText('statusText', 'ไม่รองรับ GPS');
+      setText('statusText', I18n.t('gps.no_support'));
       return;
     }
-    setText('statusText', 'กำลังค้นหา GPS…');
+    setText('statusText', I18n.t('gps.searching'));
     _startWatch();
   }
 
@@ -125,10 +142,9 @@ const App = (() => {
   }
 
   function onGeoErr(err) {
-    const msgs = { 1: 'ไม่ได้รับสิทธิ์ GPS', 2: 'ไม่พบสัญญาณ GPS', 3: 'GPS หมดเวลา' };
-    const msg = msgs[err?.code] || 'GPS ผิดพลาด';
-    setText('statusText', msg);
-    if (err?.code === 1) toast('กรุณาเปิดสิทธิ์ตำแหน่งในการตั้งค่าเบราว์เซอร์');
+    const msgs = { 1: I18n.t('gps.no_permission'), 2: I18n.t('gps.no_signal'), 3: I18n.t('gps.timeout') };
+    setText('statusText', msgs[err?.code] || I18n.t('gps.error'));
+    if (err?.code === 1) toast(I18n.t('toast.gps_perm'));
   }
 
   function updateUserMarker(lat, lng, acc) {
@@ -150,7 +166,7 @@ const App = (() => {
 
   /* ── Proximity detection ─────────────────────────────────── */
   function checkProximity(lat, lng) {
-    if (currentPage !== 'voicemap') return;
+    if (currentPage === 'home' || currentPage === 'settings') return;
     pins.forEach(pin => {
       const d      = NavManager.haversine(lat, lng, pin.lat, pin.lng);
       const trigR  = pin.radius  || PROX_M;
@@ -229,14 +245,12 @@ const App = (() => {
 
   /* ── Navigation ──────────────────────────────────────────── */
   async function startNav(pin) {
-    if (!userLat) { toast('ยังไม่ได้รับสัญญาณ GPS'); return; }
-    if (userAcc > 150) { toast(`สัญญาณ GPS ยังไม่แม่นยำ (±${Math.round(userAcc)} ม.) รอสักครู่`); return; }
+    if (!userLat) { toast(I18n.t('toast.no_gps')); return; }
+    if (userAcc > 150) { toast(I18n.t('toast.gps_acc', Math.round(userAcc))); return; }
     closeSheet();
 
     // Show nav panel
-    setEl('panelDefault', 'none');
-    setEl('panelNav', 'block');
-    expandPanel();
+    document.getElementById('bottomPanel').classList.remove('hidden');
 
     setText('navDest', pin.name);
     setText('navDist', '…');
@@ -250,9 +264,7 @@ const App = (() => {
   function stopNav() {
     NavManager.stopNavigation();
     document.getElementById('navInstruction').classList.add('hidden');
-    setEl('panelDefault', 'block');
-    setEl('panelNav', 'none');
-    collapsePanel();
+    document.getElementById('bottomPanel').classList.add('hidden');
   }
 
   function updateNavPanel(lat, lng) {
@@ -277,16 +289,8 @@ const App = (() => {
     if (info.arrived) setTimeout(stopNav, 3000);
   }
 
-  /* ── Panel helpers ───────────────────────────────────────── */
-  function expandPanel()  { document.getElementById('bottomPanel').classList.add('expanded');    panelOpen = true;  }
-  function collapsePanel(){ document.getElementById('bottomPanel').classList.remove('expanded'); panelOpen = false; }
-
   /* ── UI bindings ─────────────────────────────────────────── */
   function bindUI() {
-    // Panel handle toggle
-    document.getElementById('panelHandle').addEventListener('click', () =>
-      panelOpen ? collapsePanel() : expandPanel());
-
     // Layer toggle
     document.getElementById('layerToggle').addEventListener('click', () => {
       isSatellite = !isSatellite;
@@ -311,15 +315,9 @@ const App = (() => {
       if (userLat !== null) {
         map.flyTo([userLat, userLng], 17, { duration: 1.2 });
       } else {
-        toast('กำลังค้นหาตำแหน่ง GPS…');
+        toast(I18n.t('toast.searching'));
         _startWatch();
       }
-    });
-
-    // Center button
-    document.getElementById('centerBtn').addEventListener('click', () => {
-      if (userLat) map.setView([userLat, userLng], 17);
-      else toast('กำลังค้นหาตำแหน่ง…');
     });
 
     // Pin sheet
@@ -393,32 +391,42 @@ const App = (() => {
     // Home page action buttons
     document.getElementById('homeGoMap').addEventListener('click',   () => switchPage('map'));
     document.getElementById('homeGoVoice').addEventListener('click', () => switchPage('voicemap'));
+
+    // Language buttons in settings
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.addEventListener('click', () => I18n.setLang(btn.dataset.lang));
+    });
+
+    // POI category panel
+    document.getElementById('poiToggleBtn').addEventListener('click', () => PoiOverlay.togglePanel());
+    document.getElementById('poiPanelClose').addEventListener('click', () => PoiOverlay.closePanel());
   }
 
   /* ── Page switching ──────────────────────────────────────── */
   function switchPage(page) {
     currentPage = page;
-    const isHome    = page === 'home';
-    const isVoice   = page === 'voicemap';
-    const isMapPage = !isHome;
+    const isHome     = page === 'home';
+    const isSettings = page === 'settings';
+    const isMapPage  = !isHome && !isSettings;
 
-    // Home overlay
+    // Page overlays
     document.getElementById('pageHome').classList.toggle('page-out', !isHome);
+    document.getElementById('pageSettings').classList.toggle('page-out', !isSettings);
 
-    // Map UI (both map pages)
-    document.getElementById('topBar').classList.toggle('hidden', isHome);
-    document.getElementById('locateBtn').classList.toggle('hidden', isHome);
-    document.getElementById('layerToggle').classList.toggle('hidden', isHome);
-    document.querySelector('.fab').classList.toggle('hidden', isHome);
+    // Map UI (visible only on map pages)
+    document.getElementById('topBar').classList.toggle('hidden', isHome || isSettings);
+    document.getElementById('locateBtn').classList.toggle('hidden', isHome || isSettings);
+    document.getElementById('layerToggle').classList.toggle('hidden', isHome || isSettings);
+    document.getElementById('poiToggleBtn').classList.toggle('hidden', isHome || isSettings);
+    document.getElementById('searchFloat').classList.toggle('hidden', isHome || isSettings);
 
-    // Row1 (logo + GPS) — voice map only
-    document.getElementById('topBarRow1').classList.toggle('hidden', !isVoice);
+    // Row1 (logo + GPS) — all map pages
+    document.getElementById('topBarRow1').classList.toggle('hidden', !isMapPage);
 
-    // Voice-map-only elements
-    document.getElementById('menuToggle').classList.toggle('hidden', !isVoice);
-    document.getElementById('leftOverlay').classList.toggle('hidden', !isVoice);
-    document.getElementById('leftPanel').classList.toggle('hidden', !isVoice);
-    document.getElementById('bottomPanel').classList.toggle('hidden', !isVoice);
+    // Menu / left panel — all map pages
+    document.getElementById('menuToggle').classList.toggle('hidden', !isMapPage);
+    document.getElementById('leftOverlay').classList.toggle('hidden', !isMapPage);
+    document.getElementById('leftPanel').classList.toggle('hidden', !isMapPage);
 
     // Pin markers visible on all map pages (map + voicemap), hidden on home
     pinMarkers.forEach(marker => {
@@ -429,22 +437,23 @@ const App = (() => {
       }
     });
 
-    // Close panels when leaving voice map
-    if (!isVoice) {
+    // Close panels when leaving map pages
+    if (!isMapPage) {
+      PoiOverlay.closePanel();
+    }
+
+    // Close panels when leaving map pages
+    if (!isMapPage) {
       closeSheet();
       MenuManager.close();
       if (NavManager.isNavigating) stopNav();
     }
 
-    // Close place sheet when going home
-    if (isHome) closePlaceSheet();
+    // Close place sheet when going home or settings
+    if (isHome || isSettings) closePlaceSheet();
 
-    // Update search results position after layout changes
     if (isMapPage) {
       setTimeout(() => {
-        const tb = document.getElementById('topBar');
-        const sr = document.getElementById('searchResults');
-        sr.style.top = (tb.getBoundingClientRect().bottom + 4) + 'px';
         map.invalidateSize();
         if (userLat !== null) map.setView([userLat, userLng], map.getZoom());
       }, 50);
@@ -456,6 +465,8 @@ const App = (() => {
     });
 
     if (isHome) updateHomeStats();
+    /* Mark active lang button on settings page */
+    if (isSettings) I18n.apply();
   }
 
   /* ── Home page stats ─────────────────────────────────────── */
@@ -472,10 +483,13 @@ const App = (() => {
     list.innerHTML = history.slice(0, 5).map(entry => {
       const diff = Date.now() - entry.visitedAt;
       let when;
-      if (diff < 60_000)       when = 'เพิ่งเยี่ยมชม';
-      else if (diff < 3_600_000) when = `${Math.floor(diff/60_000)} นาทีที่แล้ว`;
-      else if (diff < 86_400_000) when = `${Math.floor(diff/3_600_000)} ชั่วโมงที่แล้ว`;
-      else when = new Date(entry.visitedAt).toLocaleDateString('th-TH', { day:'numeric', month:'short' });
+      if (diff < 60_000)          when = I18n.t('home.just_visited');
+      else if (diff < 3_600_000)  when = I18n.t('home.min_ago', Math.floor(diff/60_000));
+      else if (diff < 86_400_000) when = I18n.t('home.hr_ago',  Math.floor(diff/3_600_000));
+      else {
+        const loc = I18n.getLang() === 'en' ? 'en-US' : 'th-TH';
+        when = new Date(entry.visitedAt).toLocaleDateString(loc, { day:'numeric', month:'short' });
+      }
       return `<div class="home-recent-item">
         <span class="home-recent-icon">📍</span>
         <div class="home-recent-body">
@@ -601,13 +615,14 @@ const App = (() => {
     placeLat = null; placeLng = null;
   }
 
-  /* ── Place Search (Nominatim) ───────────────────────────── */
+  /* ── Place Search ───────────────────────────────────────── */
   let _searchTimer = null;
 
   function bindSearch() {
-    const input   = document.getElementById('searchInput');
+    const input    = document.getElementById('searchInput');
     const clearBtn = document.getElementById('searchClear');
     const results  = document.getElementById('searchResults');
+    const floatBar = document.getElementById('searchFloat');
 
     input.addEventListener('input', () => {
       const q = input.value.trim();
@@ -625,9 +640,7 @@ const App = (() => {
     });
 
     document.addEventListener('click', e => {
-      const bar = document.getElementById('topBar');
-      const res = document.getElementById('searchResults');
-      if (!bar.contains(e.target) && !res.contains(e.target))
+      if (!floatBar.contains(e.target) && !results.contains(e.target))
         results.classList.add('hidden');
     });
   }

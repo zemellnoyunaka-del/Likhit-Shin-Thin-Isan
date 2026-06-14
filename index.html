@@ -2,8 +2,11 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Voice Map – แผนที่เสียง</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Chakra+Petch:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -22,18 +25,18 @@
     <div class="home-hero">
       <div class="home-logo-icon">🗺️</div>
       <h1 class="home-title">Voice Map</h1>
-      <p class="home-subtitle">แผนที่เสียงพูดได้</p>
+      <p class="home-subtitle" data-i18n="app.subtitle">แผนที่เสียงพูดได้</p>
     </div>
 
     <!-- Stats -->
     <div class="home-stats">
       <div class="stat-card">
         <div class="stat-val" id="homePinCount">–</div>
-        <div class="stat-label">📌 หมุดเสียง</div>
+        <div class="stat-label" data-i18n="home.stat_pins">📌 หมุดเสียง</div>
       </div>
       <div class="stat-card">
         <div class="stat-val" id="homeVisitCount">–</div>
-        <div class="stat-label">🔊 เยี่ยมชม</div>
+        <div class="stat-label" data-i18n="home.stat_visits">🔊 เยี่ยมชม</div>
       </div>
     </div>
 
@@ -42,16 +45,16 @@
       <button type="button" class="home-btn" id="homeGoMap">
         <span class="home-btn-icon">🗺️</span>
         <div class="home-btn-body">
-          <div class="home-btn-title">แผนที่</div>
-          <div class="home-btn-sub">สำรวจแผนที่ดาวเทียม</div>
+          <div class="home-btn-title" data-i18n="home.btn_map_title">แผนที่</div>
+          <div class="home-btn-sub"   data-i18n="home.btn_map_sub">สำรวจแผนที่ดาวเทียม</div>
         </div>
         <span class="home-btn-arrow">›</span>
       </button>
       <button type="button" class="home-btn home-btn-accent" id="homeGoVoice">
         <span class="home-btn-icon">🔊</span>
         <div class="home-btn-body">
-          <div class="home-btn-title">Voice Map</div>
-          <div class="home-btn-sub">ค้นหาหมุดเสียงรอบตัว</div>
+          <div class="home-btn-title" data-i18n="home.btn_voice_title">Voice Map</div>
+          <div class="home-btn-sub"   data-i18n="home.btn_voice_sub">ค้นหาหมุดเสียงรอบตัว</div>
         </div>
         <span class="home-btn-arrow">›</span>
       </button>
@@ -59,8 +62,44 @@
 
     <!-- Recent visits -->
     <div class="home-section">
-      <div class="home-section-title">📜 เยี่ยมชมล่าสุด</div>
+      <div class="home-section-title" data-i18n="home.recent">📜 เยี่ยมชมล่าสุด</div>
       <div id="homeRecentList"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: ตั้งค่า
+     ══════════════════════════════════════════════════════════ -->
+<div id="pageSettings" class="page-settings page-out">
+  <div class="settings-scroll">
+
+    <div class="settings-hero">
+      <div class="settings-hero-icon">⚙️</div>
+      <h1 class="settings-page-title" data-i18n="settings.title">ตั้งค่า</h1>
+    </div>
+
+    <!-- Language -->
+    <div class="settings-card">
+      <div class="settings-section-label" data-i18n="settings.lang_title">ภาษา / Language</div>
+      <div class="settings-section-desc"  data-i18n="settings.lang_desc">เลือกภาษาที่ใช้แสดงผล</div>
+      <div class="lang-grid">
+        <button class="lang-btn" data-lang="th" id="langTh">
+          <span class="lang-flag">🇹🇭</span>
+          <span class="lang-name" data-i18n="settings.lang_th">ภาษาไทย</span>
+        </button>
+        <button class="lang-btn" data-lang="en" id="langEn">
+          <span class="lang-flag">🇬🇧</span>
+          <span class="lang-name" data-i18n="settings.lang_en">English</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- About -->
+    <div class="settings-card settings-about-card">
+      <div class="settings-section-label" data-i18n="settings.about">เกี่ยวกับ</div>
+      <div class="settings-version" data-i18n="settings.version">Voice Map v1.0</div>
     </div>
 
   </div>
@@ -84,8 +123,8 @@
     <button class="lp-close" id="leftPanelClose" title="ปิด">✕</button>
   </div>
   <div class="lp-tabs">
-    <button class="lp-tab active" data-tab="history">📜 ประวัติการเดินทาง</button>
-    <button class="lp-tab" data-tab="wanderer">🧭 ผู้พเนจร</button>
+    <button type="button" class="lp-tab active" data-tab="history" data-i18n="lp.history">📜 ประวัติการเดินทาง</button>
+    <button type="button" class="lp-tab"        data-tab="wanderer" data-i18n="lp.wanderer">🧭 ผู้พเนจร</button>
   </div>
   <div class="lp-body">
     <div class="lp-pane active" id="paneHistory"></div>
@@ -93,9 +132,8 @@
   </div>
 </div>
 
-<!-- Top Bar -->
+<!-- Top Bar (GPS status only) -->
 <div class="top-bar" id="topBar">
-  <!-- Row 1: logo + GPS (Voice Map only) -->
   <div class="top-bar-row1" id="topBarRow1">
     <div class="app-logo">
       <div class="app-logo-icon">🗺️</div>
@@ -103,51 +141,47 @@
     </div>
     <div class="location-badge">
       <span class="status-dot" id="statusDot"></span>
-      <span id="statusText">กำลังค้นหา GPS…</span>
+      <span id="statusText"></span>
     </div>
   </div>
-  <!-- Row 2: search (always when map/voice map) -->
-  <div class="top-bar-search">
-    <span class="search-icon">🔍</span>
-    <input type="text" class="search-input" id="searchInput" placeholder="ค้นหาสถานที่…" autocomplete="off">
-    <button type="button" class="search-clear hidden" id="searchClear" aria-label="ล้าง">✕</button>
-  </div>
+</div>
+
+<!-- Floating Search Bar (detached from top bar) -->
+<div class="search-float hidden" id="searchFloat">
+  <span class="search-icon">🔍</span>
+  <input type="text" class="search-input" id="searchInput"
+         data-i18n-placeholder="search.placeholder"
+         placeholder="ค้นหาสถานที่…" autocomplete="off">
+  <button type="button" class="search-clear hidden" id="searchClear" aria-label="ล้าง">✕</button>
 </div>
 
 <!-- Search Results -->
 <div class="search-results hidden" id="searchResults"></div>
 
 <!-- Bottom Panel (Voice Map only) -->
-<div class="bottom-panel" id="bottomPanel">
-  <div class="panel-handle" id="panelHandle"></div>
-  <div id="panelDefault">
-    <div class="panel-hint" id="pinCountText">กำลังโหลด…</div>
-    <div class="panel-actions">
-      <button class="btn btn-outline" id="centerBtn" style="flex:1;">
-        🎯 ตำแหน่งของฉัน
-      </button>
-    </div>
-  </div>
-  <div id="panelNav" style="display:none;">
+<!-- Nav Panel – shown only while navigating -->
+<div class="bottom-panel hidden" id="bottomPanel">
+  <div id="panelNav">
     <div class="nav-instruction hidden" id="navInstruction">
       <div class="nav-instr-arrow" id="navInstrArrow">↑</div>
       <div class="nav-instr-text"  id="navInstrText"></div>
     </div>
     <div class="nav-box">
-      <div class="nav-box-label">🧭 นำทางไปยัง</div>
+      <div class="nav-box-label" data-i18n="panel.nav_to">🧭 นำทางไปยัง</div>
       <div class="nav-box-dest" id="navDest">–</div>
       <div class="nav-stats">
         <div>
           <div class="nav-stat-val"   id="navDist">–</div>
-          <div class="nav-stat-label">ระยะเหลือ</div>
+          <div class="nav-stat-label" data-i18n="panel.remain">ระยะเหลือ</div>
         </div>
         <div>
           <div class="nav-stat-val"   id="navTime">–</div>
-          <div class="nav-stat-label">เวลาโดยประมาณ</div>
+          <div class="nav-stat-label" data-i18n="panel.time">เวลาโดยประมาณ</div>
         </div>
       </div>
     </div>
-    <button class="btn btn-danger btn-full" id="stopNavBtn">⏹️ หยุดนำทาง</button>
+    <button class="btn btn-danger btn-full" id="stopNavBtn"
+            data-i18n="panel.stop_nav">⏹️ หยุดนำทาง</button>
   </div>
 </div>
 
@@ -160,12 +194,14 @@
     </div>
     <div class="sheet-desc" id="sheetDesc"></div>
     <div class="sheet-meta">
-      <span>📏</span><span>ระยะห่าง:</span>
+      <span>📏</span><span data-i18n="sheet.dist">ระยะห่าง:</span>
       <strong id="sheetDist">–</strong>
     </div>
     <div class="sheet-actions">
-      <button type="button" class="btn btn-primary" id="sheetNavBtn" style="flex:1;">🧭 นำทาง</button>
-      <button type="button" class="btn btn-outline" id="sheetPlayBtn" style="display:none;">🔊 ฟังเสียง</button>
+      <button type="button" class="btn btn-primary" id="sheetNavBtn" style="flex:1;"
+              data-i18n="sheet.navigate">🧭 นำทาง</button>
+      <button type="button" class="btn btn-outline" id="sheetPlayBtn" style="display:none;"
+              data-i18n="sheet.play">🔊 ฟังเสียง</button>
     </div>
   </div>
 </div>
@@ -187,8 +223,10 @@
       <div class="place-info-list" id="placeInfoList"></div>
     </div>
     <div class="place-sheet-actions">
-      <button type="button" class="btn btn-primary place-nav-btn" id="placeNavBtn">🧭 นำทาง</button>
-      <a class="btn btn-outline" id="placeMapsLink" href="#" target="_blank" rel="noopener">🗺️ Google Maps</a>
+      <button type="button" class="btn btn-primary place-nav-btn" id="placeNavBtn"
+              data-i18n="place.navigate">🧭 นำทาง</button>
+      <a class="btn btn-outline" id="placeMapsLink" href="#" target="_blank" rel="noopener"
+         data-i18n="place.gmaps">🗺️ Google Maps</a>
     </div>
     <div class="gmaps-wrap" id="gmapsWrap">
       <iframe id="gmapsFrame" title="Google Maps" src="" frameborder="0" allowfullscreen loading="lazy"></iframe>
@@ -197,9 +235,19 @@
 </div>
 
 <!-- Floating buttons (map + voice map pages) -->
-<button type="button" class="locate-btn"  id="locateBtn"    title="ตำแหน่งของฉัน">📍</button>
-<button type="button" class="layer-toggle" id="layerToggle" title="สลับแผนที่">🗺️</button>
-<a href="admin.html"  class="fab"                           title="แผงผู้ดูแลระบบ">⚙️</a>
+<button type="button" class="map-fab map-fab-poi    hidden" id="poiToggleBtn" title="สถานที่ใกล้เคียง">🔎</button>
+<button type="button" class="map-fab map-fab-locate hidden" id="locateBtn"    title="ตำแหน่งของฉัน">📍</button>
+<button type="button" class="map-fab map-fab-layer  hidden" id="layerToggle"  title="สลับแผนที่">🗺️</button>
+
+<!-- POI Category Panel -->
+<div class="poi-panel hidden" id="poiPanel">
+  <div class="poi-panel-handle"></div>
+  <div class="poi-panel-header">
+    <div class="poi-panel-title" data-i18n="poi.title">📍 สถานที่ใกล้เคียง</div>
+    <button type="button" class="poi-panel-close" id="poiPanelClose">✕</button>
+  </div>
+  <div class="poi-grid" id="poiGrid"></div>
+</div>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -212,29 +260,31 @@
     <span class="sidebar-logo-text">Voice Map</span>
   </div>
 
-  <button class="nav-item active" data-page="home">
-    <span class="nav-icon">🏠</span>
-    <span class="nav-label">หน้าหลัก</span>
-  </button>
   <button class="nav-item" data-page="map">
     <span class="nav-icon">🗺️</span>
-    <span class="nav-label">แผนที่</span>
+    <span class="nav-label" data-i18n="nav.map">แผนที่</span>
   </button>
-  <button class="nav-item" data-page="voicemap">
+  <button class="nav-item" data-page="home">
     <span class="nav-icon">🔊</span>
-    <span class="nav-label">Voice Map</span>
+    <span class="nav-label" data-i18n="nav.voicemap">Voice Map</span>
+  </button>
+  <button class="nav-item" data-page="settings">
+    <span class="nav-icon">⚙️</span>
+    <span class="nav-label" data-i18n="nav.settings">ตั้งค่า</span>
   </button>
 </nav>
 
 <!-- ══ Scripts ══════════════════════════════════════════════ -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/db.js"></script>
 <script src="js/audio-manager.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/places.js"></script>
 <script src="js/menu.js"></script>
 <script src="js/seed.js"></script>
+<script src="js/poi-overlay.js"></script>
 <script src="js/app.js"></script>
 
 </body>

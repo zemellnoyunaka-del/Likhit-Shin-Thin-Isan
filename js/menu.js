@@ -52,7 +52,7 @@ const MenuManager = (() => {
       container.innerHTML = `
         <div class="lp-empty">
           <div class="lp-empty-icon">🗺️</div>
-          <div class="lp-empty-text">ยังไม่มีประวัติการเดินทาง<br>เดินทางไปถึงหมุดพิเศษเพื่อบันทึก</div>
+          <div class="lp-empty-text">${I18n.t('lp.no_history')}</div>
         </div>`;
       return;
     }
@@ -113,10 +113,10 @@ const MenuManager = (() => {
 
   /* ── Level definitions (based on total visit count) ─────── */
   const LEVELS = [
-    { lv: 1, icon: '🥾', title: 'นักเดินทางฝึกหัด',      min: 0,  next: 5  },
-    { lv: 2, icon: '🚶', title: 'นักเดินมือใหม่',         min: 5,  next: 10 },
-    { lv: 3, icon: '🧭', title: 'นักเดินถางผู้เชี่ยวชาญ', min: 10, next: 20 },
-    { lv: 4, icon: '🏆', title: 'นักเดินทางในตำนาน',      min: 20, next: null },
+    { lv: 1, icon: '🥾', key: 'level.1', min: 0,  next: 5  },
+    { lv: 2, icon: '🚶', key: 'level.2', min: 5,  next: 10 },
+    { lv: 3, icon: '🧭', key: 'level.3', min: 10, next: 20 },
+    { lv: 4, icon: '🏆', key: 'level.4', min: 20, next: null },
   ];
 
   function getLevelInfo(n) {
@@ -145,9 +145,9 @@ const MenuManager = (() => {
           </div>
           <span class="lv-progress-label">${done}/${need}</span>
         </div>
-        <div class="lv-next-hint">อีก <strong>${remaining}</strong> ครั้ง → ระดับถัดไป</div>`;
+        <div class="lv-next-hint">${I18n.t('lp.next_level', remaining)}</div>`;
     } else {
-      progressBlock = `<div class="lv-max-badge">✨ ระดับสูงสุด ✨</div>`;
+      progressBlock = `<div class="lv-max-badge">${I18n.t('lp.max_level')}</div>`;
     }
 
     return `
@@ -155,10 +155,10 @@ const MenuManager = (() => {
         <div class="lv-top">
           <div class="lv-icon">${lv.icon}</div>
           <div class="lv-info">
-            <div class="lv-num">ระดับ ${lv.lv}</div>
-            <div class="lv-title">${lv.title}</div>
+            <div class="lv-num">${I18n.t('lp.level', lv.lv)}</div>
+            <div class="lv-title">${I18n.t(lv.key)}</div>
           </div>
-          <div class="lv-visits-badge">${totalVisits} ครั้ง</div>
+          <div class="lv-visits-badge">${I18n.t('lp.visits_badge', totalVisits)}</div>
         </div>
         ${progressBlock}
       </div>`;
@@ -183,7 +183,7 @@ const MenuManager = (() => {
         ${levelHtml}
         <div class="lp-empty">
           <div class="lp-empty-icon">🌍</div>
-          <div class="lp-empty-text">ยังไม่มีหมุดพิเศษบนแผนที่<br>ผู้ดูแลระบบสามารถเพิ่มหมุดได้</div>
+          <div class="lp-empty-text">${I18n.t('lp.no_pins')}</div>
         </div>`;
       return;
     }
@@ -203,7 +203,7 @@ const MenuManager = (() => {
       <div class="wanderer-hero">
         <div class="wanderer-medal">${rank.icon}</div>
         <div class="wanderer-rank">${rank.title}</div>
-        <div class="wanderer-count">${doneCount} / ${total} จุดพิเศษ</div>
+        <div class="wanderer-count">${I18n.t('lp.unique_pins', doneCount, total)}</div>
       </div>
 
       <div class="progress-row">
@@ -213,18 +213,91 @@ const MenuManager = (() => {
         <div class="progress-pct">${pct}%</div>
       </div>
 
-      <div class="checklist-label">รายชื่อหมุดพิเศษทั้งหมด</div>
+      ${renderRankScroll(doneCount, pct)}
+
+      <div class="checklist-label">${I18n.t('lp.all_pins')}</div>
       ${checklist}`;
+
+    /* Auto-scroll rank strip so active card is centered */
+    requestAnimationFrame(() => {
+      const strip  = document.getElementById('rankScroll');
+      const active = strip?.querySelector('.rank-card-active');
+      if (strip && active) {
+        const offset = active.offsetLeft - strip.offsetWidth / 2 + active.offsetWidth / 2;
+        strip.scrollTo({ left: offset, behavior: 'smooth' });
+      }
+    });
+  }
+
+  /* Chick icons – same baby chick, progressively more travel gear */
+  const CHICK_ICONS = [
+    /* 1 – หลุดจากไข่ ไม่มีอุปกรณ์ */
+    `<div class="chick-wrap"><span class="chick-main">🐣</span></div>`,
+    /* 2 – ยืนได้แล้ว มีรองเท้า */
+    `<div class="chick-wrap">
+       <span class="chick-main">🐥</span>
+       <span class="chick-gear g-bot">👟</span>
+     </div>`,
+    /* 3 – มีเป้สะพายหลัง */
+    `<div class="chick-wrap">
+       <span class="chick-main">🐥</span>
+       <span class="chick-gear g-right">🎒</span>
+       <span class="chick-gear g-bot">👟</span>
+     </div>`,
+    /* 4 – มีแผนที่ */
+    `<div class="chick-wrap">
+       <span class="chick-main">🐥</span>
+       <span class="chick-gear g-right">🎒</span>
+       <span class="chick-gear g-left">🗺️</span>
+       <span class="chick-gear g-bot">👟</span>
+     </div>`,
+    /* 5 – มีกล้องส่องทางไกล */
+    `<div class="chick-wrap">
+       <span class="chick-main">🐥</span>
+       <span class="chick-gear g-top-right">🔭</span>
+       <span class="chick-gear g-right">🎒</span>
+       <span class="chick-gear g-left">🗺️</span>
+       <span class="chick-gear g-bot">👟</span>
+     </div>`,
+    /* 6 – ครบชุด + มงกุฎ */
+    `<div class="chick-wrap">
+       <span class="chick-main">🐥</span>
+       <span class="chick-gear g-crown">👑</span>
+       <span class="chick-gear g-top-right">🔭</span>
+       <span class="chick-gear g-right">🎒</span>
+       <span class="chick-gear g-left">🗺️</span>
+       <span class="chick-gear g-bot">👟</span>
+     </div>`,
+  ];
+
+  /* All rank definitions for the scroll showcase */
+  const ALL_RANKS = [
+    { id: 'beginner',   icon: CHICK_ICONS[0], key: 'rank.beginner',  sub: { th: 'ผู้เริ่มต้น',        en: 'Beginner'   }, check: (d,p) => d === 0 },
+    { id: 'traveler',   icon: CHICK_ICONS[1], key: 'rank.traveler',   sub: { th: 'นักเดินทาง',          en: 'Traveler'   }, check: (d,p) => d > 0 && p < 25 },
+    { id: 'explorer',   icon: CHICK_ICONS[2], key: 'rank.explorer',   sub: { th: 'ผู้สำรวจ',            en: 'Explorer'   }, check: (d,p) => p >= 25 && p < 50 },
+    { id: 'adventurer', icon: CHICK_ICONS[3], key: 'rank.adventurer', sub: { th: 'นักผจญภัย',           en: 'Adventurer' }, check: (d,p) => p >= 50 && p < 75 },
+    { id: 'wanderer',   icon: CHICK_ICONS[4], key: 'rank.wanderer',   sub: { th: 'ผู้พเนจร',            en: 'Wanderer'   }, check: (d,p) => p >= 75 && p < 100 },
+    { id: 'legend',     icon: CHICK_ICONS[5], key: 'rank.legend',     sub: { th: 'ผู้พเนจรผู้ยิ่งใหญ่', en: 'Legend'    }, check: (d,p) => p === 100 },
+  ];
+
+  function renderRankScroll(doneCount, pct) {
+    const lang = I18n.getLang();
+    const cards = ALL_RANKS.map(r => {
+      const isActive = r.check(doneCount, pct);
+      return `
+        <div class="rank-card${isActive ? ' rank-card-active' : ''}" data-rank-id="${r.id}">
+          <div class="rank-card-icon${isActive ? ' rank-icon-anim' : ''}">${r.icon}</div>
+          <div class="rank-card-name">${r.sub[lang] ?? r.sub.th}</div>
+        </div>`;
+    }).join('');
+    return `<div class="rank-scroll" id="rankScroll">${cards}</div>`;
   }
 
   /* Rank definitions (based on % of unique pins visited) */
   function getWandererRank(done, pct) {
-    if (done === 0) return { icon: '🐣', title: 'ผู้เริ่มต้น' };
-    if (pct < 25)   return { icon: '🚶', title: 'นักเดินทาง' };
-    if (pct < 50)   return { icon: '🧭', title: 'ผู้สำรวจ' };
-    if (pct < 75)   return { icon: '⭐', title: 'นักผจญภัย' };
-    if (pct < 100)  return { icon: '🌟', title: 'ผู้พเนจร' };
-    return              { icon: '🏆', title: 'ผู้พเนจรผู้ยิ่งใหญ่' };
+    const r = ALL_RANKS.find(r => r.check(done, pct)) ?? ALL_RANKS[ALL_RANKS.length - 1];
+    const lang = I18n.getLang();
+    return { icon: r.icon, title: r.sub[lang] ?? r.sub.th };
   }
 
   /* ── Init ────────────────────────────────────────────────── */
@@ -254,17 +327,19 @@ const MenuManager = (() => {
   function dateLabel(ts) {
     const d   = new Date(ts);
     const now = new Date();
-    if (isSameDay(d, now))          return 'วันนี้';
-    if (isSameDay(d, yesterday()))  return 'เมื่อวาน';
-    return d.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long' });
+    if (isSameDay(d, now))          return I18n.t('time.today');
+    if (isSameDay(d, yesterday()))  return I18n.t('time.yesterday');
+    const locale = I18n.getLang() === 'en' ? 'en-US' : 'th-TH';
+    return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
   }
 
   function timeLabel(ts) {
     const diff = Date.now() - ts;
-    if (diff < 60_000)          return 'เพิ่งเดินทางถึง';
-    if (diff < 3_600_000)       return `${Math.floor(diff / 60_000)} นาทีที่แล้ว`;
-    if (diff < 86_400_000)      return `${Math.floor(diff / 3_600_000)} ชั่วโมงที่แล้ว`;
-    return new Date(ts).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    if (diff < 60_000)       return I18n.t('time.just_now');
+    if (diff < 3_600_000)    return I18n.t('time.minutes_ago', Math.floor(diff / 60_000));
+    if (diff < 86_400_000)   return I18n.t('time.hours_ago',   Math.floor(diff / 3_600_000));
+    const locale = I18n.getLang() === 'en' ? 'en-US' : 'th-TH';
+    return new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   }
 
   function isSameDay(a, b) {

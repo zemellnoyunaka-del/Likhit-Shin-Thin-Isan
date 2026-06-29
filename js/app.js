@@ -7,6 +7,7 @@ const App = (() => {
   let map, userMarker, accCircle;
   let watchId = null;
   let userLat = null, userLng = null, userAcc = Infinity;
+  let _nfcLock = false;  // ป้องกัน GPS override ตำแหน่ง NFC pin
   let pins = [];
   const pinMarkers = new Map();
   const triggered = new Set();   // pins already triggered this visit
@@ -85,8 +86,10 @@ const App = (() => {
     if (_nfcId) {
       const _nfcPin = PinStorage.getAll().find(p => p.id === _nfcId);
       if (_nfcPin) {
+        _nfcLock = true;
         map.setView([_nfcPin.lat, _nfcPin.lng], 17);
         setTimeout(() => showPinSheet(_nfcPin), 600);
+        setTimeout(() => { _nfcLock = false; }, 6000);
       }
     }
   }
@@ -177,7 +180,7 @@ const App = (() => {
       });
       userMarker = L.marker(ll, { icon, zIndexOffset: 1000 }).addTo(map);
       accCircle  = L.circle(ll, { radius: acc, color: '#4f46e5', fillColor: '#4f46e5', fillOpacity: .05, weight: 1, opacity: .25 }).addTo(map);
-      if (currentPage !== 'home') map.setView(ll, 17);
+      if (currentPage !== 'home' && !_nfcLock) map.setView(ll, 17);
     } else {
       userMarker.setLatLng(ll);
       accCircle.setLatLng(ll).setRadius(acc);

@@ -200,6 +200,14 @@ const App = (() => {
     setText('sheetTitle', pin.name);
     setText('sheetDesc',  pin.description || '');
 
+    const poemEl = document.getElementById('sheetPoem');
+    if (pin.poem) {
+      document.getElementById('sheetPoemText').textContent = pin.poem;
+      poemEl.classList.remove('hidden');
+    } else {
+      poemEl.classList.add('hidden');
+    }
+
     const distEl = document.getElementById('sheetDist');
     if (userLat !== null) {
       distEl.textContent = NavManager.fmtDist(NavManager.haversine(userLat, userLng, pin.lat, pin.lng));
@@ -248,8 +256,9 @@ const App = (() => {
     if (userAcc > 150) { toast(I18n.t('toast.gps_acc', Math.round(userAcc))); return; }
     closeSheet();
 
-    // Show nav panel
+    // Show nav panel + cancel button
     document.getElementById('bottomPanel').classList.remove('hidden');
+    document.getElementById('cancelNavBtn').classList.remove('hidden');
 
     setText('navDest', pin.name);
     setText('navDist', '…');
@@ -264,6 +273,7 @@ const App = (() => {
     NavManager.stopNavigation();
     document.getElementById('navInstruction').classList.add('hidden');
     document.getElementById('bottomPanel').classList.add('hidden');
+    document.getElementById('cancelNavBtn').classList.add('hidden');
   }
 
   function updateNavPanel(lat, lng) {
@@ -366,6 +376,7 @@ const App = (() => {
 
     // Stop nav
     document.getElementById('stopNavBtn').addEventListener('click', stopNav);
+    document.getElementById('cancelNavBtn').addEventListener('click', stopNav);
 
 
     // Place info sheet

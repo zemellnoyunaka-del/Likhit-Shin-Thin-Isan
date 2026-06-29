@@ -182,6 +182,10 @@
       <button type="button" id="sheetClose" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;">✕</button>
     </div>
     <div class="sheet-desc" id="sheetDesc"></div>
+    <div class="sheet-poem hidden" id="sheetPoem">
+      <div class="sheet-poem-label">📜 กลอน</div>
+      <div class="sheet-poem-text" id="sheetPoemText"></div>
+    </div>
     <div class="sheet-meta">
       <span>📏</span><span data-i18n="sheet.dist">ระยะห่าง:</span>
       <strong id="sheetDist">–</strong>
@@ -224,6 +228,7 @@
 </div>
 
 <!-- Floating buttons (map + voice map pages) -->
+<button type="button" class="map-fab-cancel-nav hidden" id="cancelNavBtn" title="ยกเลิกการนำทาง">⏹ ยกเลิก</button>
 <button type="button" class="map-fab map-fab-locate hidden" id="locateBtn"   title="ตำแหน่งของฉัน">📍</button>
 <button type="button" class="map-fab map-fab-layer  hidden" id="layerToggle" title="สลับแผนที่">🗺️</button>
 

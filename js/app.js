@@ -17,6 +17,9 @@ const App = (() => {
   let selectedLocMarker = null;
   let streetLayer = null, satLayer = null, satLabelLayer = null, isSatellite = true;
   let currentPage = 'home';
+  let _searchTimer = null;
+  let _searchAbort = null;
+  const _searchCache = new Map();
 
   /* ── Boot ────────────────────────────────────────────────── */
   async function init() {
@@ -405,6 +408,7 @@ const App = (() => {
       btn.addEventListener('click', () => I18n.setLang(btn.dataset.lang));
     });
 
+    bindSearch();
   }
 
   /* ── Page switching ──────────────────────────────────────── */
@@ -422,6 +426,7 @@ const App = (() => {
     document.getElementById('topBar').classList.toggle('hidden', isHome || isSettings);
     document.getElementById('locateBtn').classList.toggle('hidden', isHome || isSettings);
     document.getElementById('layerToggle').classList.toggle('hidden', isHome || isSettings);
+    document.getElementById('mapSearchWrap').classList.toggle('hidden', isHome || isSettings);
 
     // Row1 (logo + GPS) — all map pages
     document.getElementById('topBarRow1').classList.toggle('hidden', !isMapPage);
@@ -617,6 +622,285 @@ const App = (() => {
     placeLat = null; placeLng = null;
   }
 
+
+  /* ── Map Search (Nominatim) ──────────────────────────────── */
+  function bindSearch() {
+    const wrap    = document.getElementById('mapSearchWrap');
+    const input   = document.getElementById('mapSearchInput');
+    const clearBtn = document.getElementById('mapSearchClear');
+    const results = document.getElementById('mapSearchResults');
+    let   _focusIdx = -1;
+
+    function _hideResults() {
+      results.classList.add('hidden');
+      _focusIdx = -1;
+    }
+
+    function _setFocus(idx) {
+      const items = [...results.querySelectorAll('.map-search-item')];
+      items.forEach((el, i) => el.classList.toggle('focused', i === idx));
+      if (items[idx]) items[idx].scrollIntoView({ block: 'nearest' });
+      _focusIdx = idx;
+    }
+
+    input.addEventListener('input', () => {
+      const q = input.value.trim();
+      clearBtn.classList.toggle('hidden', !q);
+      clearTimeout(_searchTimer);
+      if (_searchAbort) { _searchAbort.abort(); _searchAbort = null; }
+      _focusIdx = -1;
+
+      if (q.length < 2) { _hideResults(); return; }
+
+      if (_searchCache.has(q)) {
+        _renderResults(_searchCache.get(q));
+        return;
+      }
+
+      results.innerHTML = '<div class="map-search-msg"><span class="search-spin"></span>กำลังค้นหา…</div>';
+      results.classList.remove('hidden');
+      _searchTimer = setTimeout(() => _doSearch(q), 420);
+    });
+
+    input.addEventListener('keydown', e => {
+      const items = [...results.querySelectorAll('.map-search-item')];
+      if (!items.length) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault(); _setFocus(Math.min(_focusIdx + 1, items.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault(); _setFocus(Math.max(_focusIdx - 1, 0));
+      } else if (e.key === 'Enter') {
+        e.preventDefault(); if (_focusIdx >= 0) items[_focusIdx].click();
+      } else if (e.key === 'Escape') {
+        _hideResults(); input.blur();
+      }
+    });
+
+    input.addEventListener('focus', () => {
+      if (input.value.trim().length >= 2 && !results.classList.contains('hidden'))
+        results.classList.remove('hidden');
+    });
+
+    clearBtn.addEventListener('click', () => {
+      input.value = '';
+      clearBtn.classList.add('hidden');
+      _hideResults();
+      input.focus();
+    });
+
+    document.addEventListener('click', e => {
+      if (!wrap.contains(e.target)) _hideResults();
+    });
+  }
+
+  async function _doSearch(q) {
+    if (_searchAbort) _searchAbort.abort();
+    _searchAbort = new AbortController();
+    const signal  = _searchAbort.signal;
+    const results = document.getElementById('mapSearchResults');
+    const center  = _searchCenter();
+
+    try {
+      const variants = _queryVariants(q);
+
+      // Phase 1 – ค้นหาเฉพาะรอบตำแหน่งปัจจุบัน (bounded, ~45 km)
+      const nearbySettled = await Promise.allSettled(
+        variants.map(v => _fetchNominatim(v, signal, center, 0.4, true))
+      );
+      if (signal.aborted) return;
+
+      const seenIds = new Set();
+      const nearby  = [];
+      nearbySettled.forEach(r => {
+        if (r.status !== 'fulfilled') return;
+        r.value.forEach(item => {
+          if (!seenIds.has(item.place_id)) { seenIds.add(item.place_id); nearby.push(item); }
+        });
+      });
+      nearby.sort((a, b) => _textScore(b, q) - _textScore(a, q));
+
+      // Phase 2 – ถ้าผลใกล้เคียงน้อยกว่า 4 → เพิ่มผลจากทั่วประเทศมาเติม
+      let extra = [];
+      if (nearby.length < 4) {
+        const broadSettled = await Promise.allSettled(
+          variants.map(v => _fetchNominatim(v, signal, center, 1.5, false))
+        );
+        if (signal.aborted) return;
+        broadSettled.forEach(r => {
+          if (r.status !== 'fulfilled') return;
+          r.value.forEach(item => {
+            if (!seenIds.has(item.place_id)) { seenIds.add(item.place_id); extra.push(item); }
+          });
+        });
+        extra.sort((a, b) => _relevanceScore(b, q) - _relevanceScore(a, q));
+      }
+
+      // รวม: ใกล้เคียงก่อนเสมอ ตามด้วยไกล
+      const merged = [...nearby, ...extra].slice(0, 8);
+
+      if (!merged.length) {
+        results.innerHTML = `<div class="map-search-msg">ไม่พบ "<b>${_esc(q)}</b>"<br><span class="search-hint">ลองพิมพ์ชื่อย่อ หรือเป็นภาษาอังกฤษ</span></div>`;
+        return;
+      }
+
+      if (_searchCache.size >= 40) _searchCache.delete(_searchCache.keys().next().value);
+      _searchCache.set(q, merged);
+      _renderResults(merged);
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      results.innerHTML = '<div class="map-search-msg">⚠️ เชื่อมต่อไม่ได้ — ลองใหม่อีกครั้ง</div>';
+    }
+  }
+
+  async function _fetchNominatim(q, signal, center, delta, bounded) {
+    const vb = (center && delta)
+      ? `&viewbox=${center.lng-delta},${center.lat+delta},${center.lng+delta},${center.lat-delta}`
+        + `&bounded=${bounded ? 1 : 0}`
+      : '';
+    const lim = bounded ? 8 : 12;
+    const url = `https://nominatim.openstreetmap.org/search`
+              + `?q=${encodeURIComponent(q)}&format=json&limit=${lim}`
+              + `&countrycodes=th&addressdetails=1&namedetails=1&accept-language=th`
+              + vb;
+    const res = await fetch(url, { signal });
+    return res.json();
+  }
+
+  function _searchCenter() {
+    if (userLat !== null) return { lat: userLat, lng: userLng };
+    try { const c = map.getCenter(); return { lat: c.lat, lng: c.lng }; }
+    catch { return null; }
+  }
+
+  function _textScore(item, q) {
+    const name = (item.name || '').toLowerCase();
+    const qLow = q.toLowerCase();
+    if (name === qLow)           return 100;
+    if (name.startsWith(qLow))   return  90;
+    if (name.includes(qLow))     return  75;
+    const disp = item.display_name.toLowerCase();
+    if (disp.includes(qLow))     return  55;
+    let matched = 0, ni = 0;
+    for (const ch of qLow) { const f = name.indexOf(ch, ni); if (f !== -1) { matched++; ni = f + 1; } }
+    return matched > 0 ? Math.floor((matched / qLow.length) * 35) : 0;
+  }
+
+  function _queryVariants(q) {
+    const variants = [q];
+    const prefixes = [
+      'โรงเรียน','โรงพยาบาล','มหาวิทยาลัย','วิทยาลัย',
+      'วัด','พระธาตุ','ถนน','ซอย','สวน','ห้าง','ตลาด',
+    ];
+
+    // If query starts with a prefix → add stripped version
+    for (const p of prefixes) {
+      if (q.startsWith(p) && q.length > p.length + 1) {
+        variants.push(q.slice(p.length).trim());
+        break;
+      }
+    }
+
+    // If query has no known prefix & is short → try with common prefixes
+    const hasPrefix = prefixes.some(p => q.startsWith(p));
+    if (!hasPrefix && q.length <= 12) {
+      // Guess most likely prefix from common clues
+      if (/วัด|ธาตุ|พระ|เจ/.test(q))    variants.push('วัด' + q);
+      if (/โรง|รพ/.test(q))              variants.push('โรงพยาบาล' + q);
+      if (/รร|เรียน/.test(q))            variants.push('โรงเรียน' + q);
+    }
+
+    return [...new Set(variants)].slice(0, 3);
+  }
+
+  function _relevanceScore(item, q) {
+    const name  = (item.name || '').toLowerCase();
+    const disp  = (item.display_name || '').toLowerCase();
+    const alt   = Object.values(item.namedetails || {}).join(' ').toLowerCase();
+    const qLow  = q.toLowerCase();
+
+    let score = 0;
+    if (name === qLow)           score = 100;
+    else if (name.startsWith(qLow))  score =  90;
+    else if (name.includes(qLow))    score =  75;
+    else if (disp.includes(qLow))    score =  55;
+    else if (alt.includes(qLow))     score =  40;
+    else {
+      // Sequential character match — how many chars of q appear in order in name
+      let matched = 0, ni = 0;
+      for (const ch of qLow) { const f = name.indexOf(ch, ni); if (f !== -1) { matched++; ni = f + 1; } }
+      score = matched > 0 ? Math.floor((matched / qLow.length) * 35) : 0;
+    }
+
+    // Distance bonus — boost nearby results
+    const iLat = parseFloat(item.lat), iLng = parseFloat(item.lon);
+    if (!isNaN(iLat) && userLat !== null) {
+      const dist = NavManager.haversine(userLat, userLng, iLat, iLng);
+      if      (dist <  1_000) score += 35;
+      else if (dist <  5_000) score += 25;
+      else if (dist < 20_000) score += 15;
+      else if (dist < 50_000) score +=  5;
+    }
+
+    return score;
+  }
+
+  function _renderResults(data) {
+    const results = document.getElementById('mapSearchResults');
+    results.innerHTML = data.map((item, i) => {
+      const addr  = item.address || {};
+      const name  = item.name
+                 || addr.road || addr.suburb
+                 || item.display_name.split(',')[0];
+      const parts = [];
+      if (addr.road    && addr.road    !== name) parts.push(addr.road);
+      if (addr.suburb  && addr.suburb  !== name) parts.push(addr.suburb);
+      const city = addr.city || addr.town || addr.village || addr.municipality;
+      if (city)                                  parts.push(city);
+      if (addr.province && addr.province !== city) parts.push(addr.province);
+      const sub = parts.slice(0, 3).join(' · ');
+      return `<div class="map-search-item" data-idx="${i}" role="option">
+        <span class="map-search-item-icon">${_searchIcon(item.type, item.class)}</span>
+        <div class="map-search-item-body">
+          <div class="map-search-item-name">${_esc(name)}</div>
+          ${sub ? `<div class="map-search-item-addr">${_esc(sub)}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    results.classList.remove('hidden');
+
+    results.querySelectorAll('.map-search-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const item = data[+el.dataset.idx];
+        map.flyTo([parseFloat(item.lat), parseFloat(item.lon)], 17, { duration: 1.2 });
+        _placeSelectedPin(parseFloat(item.lat), parseFloat(item.lon));
+        results.classList.add('hidden');
+        document.getElementById('mapSearchInput').blur();
+      });
+    });
+  }
+
+  function _searchIcon(type, cls) {
+    const amenity = {
+      restaurant:'🍽️', cafe:'☕', food_court:'🍽️',
+      school:'🏫', university:'🎓', kindergarten:'🏫',
+      hospital:'🏥', clinic:'🏥', pharmacy:'💊',
+      bank:'🏦', atm:'🏧', fuel:'⛽',
+      place_of_worship:'🛕', temple:'🛕',
+      hotel:'🏨', guest_house:'🏨',
+      parking:'🅿️', police:'👮', fire_station:'🚒',
+      supermarket:'🛒', marketplace:'🏪', convenience:'🏪',
+      post_office:'📮', library:'📚', cinema:'🎬',
+      bus_station:'🚌', ferry_terminal:'⛴️',
+    };
+    if (cls === 'amenity' && amenity[type]) return amenity[type];
+    const clsMap = {
+      highway:'🛣️', natural:'🌿', tourism:'🏛️',
+      shop:'🛍️', leisure:'🌳', historic:'🏯',
+      waterway:'💧', railway:'🚉', aeroway:'✈️',
+      boundary:'📍', place:'🏙️',
+    };
+    return clsMap[cls] || '📍';
+  }
 
   /* ── Utilities ───────────────────────────────────────────── */
   function _esc(s) {

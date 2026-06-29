@@ -79,6 +79,16 @@ const App = (() => {
     });
 
     switchPage('map');
+
+    // NFC deep link: ?pin=pin_seed_XXX
+    const _nfcId = new URLSearchParams(window.location.search).get('pin');
+    if (_nfcId) {
+      const _nfcPin = PinStorage.getAll().find(p => p.id === _nfcId);
+      if (_nfcPin) {
+        map.setView([_nfcPin.lat, _nfcPin.lng], 17);
+        setTimeout(() => showPinSheet(_nfcPin), 600);
+      }
+    }
   }
 
   function _refreshDynamicText() {

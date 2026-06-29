@@ -55,7 +55,6 @@ const App = (() => {
 
     NavManager.init(map);
     MenuManager.init();
-    PoiOverlay.init(map);
 
     loadPins();
     startTracking();
@@ -368,8 +367,6 @@ const App = (() => {
     // Stop nav
     document.getElementById('stopNavBtn').addEventListener('click', stopNav);
 
-    // Search
-    bindSearch();
 
     // Place info sheet
     document.getElementById('placeClose').addEventListener('click', closePlaceSheet);
@@ -397,9 +394,6 @@ const App = (() => {
       btn.addEventListener('click', () => I18n.setLang(btn.dataset.lang));
     });
 
-    // POI category panel
-    document.getElementById('poiToggleBtn').addEventListener('click', () => PoiOverlay.togglePanel());
-    document.getElementById('poiPanelClose').addEventListener('click', () => PoiOverlay.closePanel());
   }
 
   /* ── Page switching ──────────────────────────────────────── */
@@ -417,8 +411,6 @@ const App = (() => {
     document.getElementById('topBar').classList.toggle('hidden', isHome || isSettings);
     document.getElementById('locateBtn').classList.toggle('hidden', isHome || isSettings);
     document.getElementById('layerToggle').classList.toggle('hidden', isHome || isSettings);
-    document.getElementById('poiToggleBtn').classList.toggle('hidden', isHome || isSettings);
-    document.getElementById('searchFloat').classList.toggle('hidden', isHome || isSettings);
 
     // Row1 (logo + GPS) — all map pages
     document.getElementById('topBarRow1').classList.toggle('hidden', !isMapPage);
@@ -439,7 +431,6 @@ const App = (() => {
 
     // Close panels when leaving map pages
     if (!isMapPage) {
-      PoiOverlay.closePanel();
     }
 
     // Close panels when leaving map pages
@@ -615,84 +606,6 @@ const App = (() => {
     placeLat = null; placeLng = null;
   }
 
-  /* ── Place Search ───────────────────────────────────────── */
-  let _searchTimer = null;
-
-  function bindSearch() {
-    const input    = document.getElementById('searchInput');
-    const clearBtn = document.getElementById('searchClear');
-    const results  = document.getElementById('searchResults');
-    const floatBar = document.getElementById('searchFloat');
-
-    input.addEventListener('input', () => {
-      const q = input.value.trim();
-      clearBtn.classList.toggle('hidden', !q);
-      clearTimeout(_searchTimer);
-      if (!q) { results.classList.add('hidden'); return; }
-      _searchTimer = setTimeout(() => _doSearch(q), 420);
-    });
-
-    clearBtn.addEventListener('click', () => {
-      input.value = '';
-      clearBtn.classList.add('hidden');
-      results.classList.add('hidden');
-      input.focus();
-    });
-
-    document.addEventListener('click', e => {
-      if (!floatBar.contains(e.target) && !results.contains(e.target))
-        results.classList.add('hidden');
-    });
-  }
-
-  async function _doSearch(query) {
-    const results = document.getElementById('searchResults');
-    results.innerHTML = '<div class="search-result-empty">กำลังค้นหา…</div>';
-    results.classList.remove('hidden');
-
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&accept-language=th`;
-      const res  = await fetch(url, { headers: { 'User-Agent': 'VoiceMap/1.0' } });
-      const data = await res.json();
-
-      if (!data.length) {
-        results.innerHTML = '<div class="search-result-empty">ไม่พบสถานที่</div>';
-        return;
-      }
-
-      results.innerHTML = data.map((r, i) => {
-        const parts = r.display_name.split(',');
-        const name  = parts[0].trim();
-        const addr  = parts.slice(1, 3).join(',').trim();
-        return `<div class="search-result-item" data-lat="${r.lat}" data-lon="${r.lon}">
-          <span class="search-result-icon">${_searchIcon(r.class)}</span>
-          <div class="search-result-body">
-            <div class="search-result-name">${_esc(name)}</div>
-            ${addr ? `<div class="search-result-addr">${_esc(addr)}</div>` : ''}
-          </div>
-        </div>`;
-      }).join('');
-
-      results.querySelectorAll('.search-result-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const lat = parseFloat(item.dataset.lat);
-          const lon = parseFloat(item.dataset.lon);
-          map.flyTo([lat, lon], 17, { duration: 1.2 });
-          document.getElementById('searchInput').value =
-            item.querySelector('.search-result-name').textContent;
-          document.getElementById('searchClear').classList.remove('hidden');
-          results.classList.add('hidden');
-        });
-      });
-    } catch {
-      results.innerHTML = '<div class="search-result-empty">เกิดข้อผิดพลาด ลองใหม่อีกครั้ง</div>';
-    }
-  }
-
-  function _searchIcon(cls) {
-    const icons = { amenity:'🏪', tourism:'🏛️', shop:'🛒', natural:'🌿', highway:'🛣️', place:'📍', building:'🏢' };
-    return icons[cls] || '📌';
-  }
 
   /* ── Utilities ───────────────────────────────────────────── */
   function _esc(s) {

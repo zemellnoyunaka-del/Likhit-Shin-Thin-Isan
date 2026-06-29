@@ -146,17 +146,6 @@
   </div>
 </div>
 
-<!-- Floating Search Bar (detached from top bar) -->
-<div class="search-float hidden" id="searchFloat">
-  <span class="search-icon">🔍</span>
-  <input type="text" class="search-input" id="searchInput"
-         data-i18n-placeholder="search.placeholder"
-         placeholder="ค้นหาสถานที่…" autocomplete="off">
-  <button type="button" class="search-clear hidden" id="searchClear" aria-label="ล้าง">✕</button>
-</div>
-
-<!-- Search Results -->
-<div class="search-results hidden" id="searchResults"></div>
 
 <!-- Bottom Panel (Voice Map only) -->
 <!-- Nav Panel – shown only while navigating -->
@@ -235,19 +224,8 @@
 </div>
 
 <!-- Floating buttons (map + voice map pages) -->
-<button type="button" class="map-fab map-fab-poi    hidden" id="poiToggleBtn" title="สถานที่ใกล้เคียง">🔎</button>
-<button type="button" class="map-fab map-fab-locate hidden" id="locateBtn"    title="ตำแหน่งของฉัน">📍</button>
-<button type="button" class="map-fab map-fab-layer  hidden" id="layerToggle"  title="สลับแผนที่">🗺️</button>
-
-<!-- POI Category Panel -->
-<div class="poi-panel hidden" id="poiPanel">
-  <div class="poi-panel-handle"></div>
-  <div class="poi-panel-header">
-    <div class="poi-panel-title" data-i18n="poi.title">📍 สถานที่ใกล้เคียง</div>
-    <button type="button" class="poi-panel-close" id="poiPanelClose">✕</button>
-  </div>
-  <div class="poi-grid" id="poiGrid"></div>
-</div>
+<button type="button" class="map-fab map-fab-locate hidden" id="locateBtn"   title="ตำแหน่งของฉัน">📍</button>
+<button type="button" class="map-fab map-fab-layer  hidden" id="layerToggle" title="สลับแผนที่">🗺️</button>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -284,7 +262,6 @@
 <script src="js/places.js"></script>
 <script src="js/menu.js"></script>
 <script src="js/seed.js"></script>
-<script src="js/poi-overlay.js"></script>
 <script src="js/app.js"></script>
 
 </body>

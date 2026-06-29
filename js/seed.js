@@ -6,22 +6,22 @@
 const SeedData = (() => {
 
   const SEEDS = [
-    {
-      pin: {
-        id:          'pin_seed_001',
-        name:        'โรงเรียนเทศบาลวัดกลาง',
-        description: '',
-        lat:         16.41326201980522,
-        lng:         102.83149808400525,
-        radius:      20,   // trigger radius in metres (overrides global PROX_M)
-        createdAt:   0
-      },
-      audioFile: 'merged.mp3'
-    }
     // เพิ่ม seed pins อื่น ๆ ได้ที่นี่
   ];
 
+  /* IDs ของ seed pins ที่ถูกลบออก — จะถูกลบจาก storage ทุกครั้งที่ app เปิด */
+  const REMOVED_SEED_IDS = [
+    'pin_seed_001', // โรงเรียนเทศบาลวัดกลาง
+  ];
+
   async function run() {
+    /* ลบ pins ที่ถูก retire ออกจาก storage (รวม audio) */
+    for (const id of REMOVED_SEED_IDS) {
+      if (PinStorage.getAll().find(p => p.id === id)) {
+        PinStorage.del(id);
+        console.info(`[Seed] ลบหมุด "${id}" ออกแล้ว`);
+      }
+    }
     for (const seed of SEEDS) {
       await _seedOne(seed);
     }

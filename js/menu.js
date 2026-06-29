@@ -229,45 +229,130 @@ const MenuManager = (() => {
     });
   }
 
-  /* Chick icons – same baby chick, progressively more travel gear */
+  /* ── SVG chick models ─────────────────────────────────────────── */
+  const _S = (i) =>
+    `<div class="chick-wrap"><svg viewBox="0 0 40 48" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">${i}</svg></div>`;
+
+  const OL = '#2D2314'; /* warm dark outline */
+
+  /* head */
+  const _H = `
+    <circle cx="20" cy="12" r="10.5" fill="#FFE234" stroke="${OL}" stroke-width="1.3"/>
+    <ellipse cx="17" cy="9" rx="5" ry="3" fill="#fff" opacity=".22"/>
+    <ellipse cx="13.5" cy="16" rx="3.8" ry="2.4" fill="#FFB7C5" opacity=".85"/>
+    <ellipse cx="26.5" cy="16" rx="3.8" ry="2.4" fill="#FFB7C5" opacity=".85"/>
+    <circle cx="15.5" cy="11"   r="3.2" fill="#fff" stroke="${OL}" stroke-width=".7"/>
+    <circle cx="24.5" cy="11"   r="3.2" fill="#fff" stroke="${OL}" stroke-width=".7"/>
+    <circle cx="16"   cy="11.6" r="2.1" fill="#2D2D2D"/>
+    <circle cx="25"   cy="11.6" r="2.1" fill="#2D2D2D"/>
+    <circle cx="17"   cy="10.6" r=".85" fill="#fff"/>
+    <circle cx="26"   cy="10.6" r=".85" fill="#fff"/>
+    <circle cx="15.3" cy="13"   r=".45" fill="#fff" opacity=".65"/>
+    <circle cx="24.3" cy="13"   r=".45" fill="#fff" opacity=".65"/>
+    <path d="M17.5,16 L22.5,16 L20,20" fill="#FF8C00" stroke="${OL}" stroke-width=".8" stroke-linejoin="round"/>`;
+
+  /* tuft */
+  const _T = `
+    <path d="M20,2 Q18.5,-1.5 20,-2.5 Q21.5,-1.5 20,2"   fill="#FFE234" stroke="${OL}" stroke-width=".9"/>
+    <path d="M16.5,3 Q13,-1.5 15.5,-2.5 Q18.5,1.5 16.5,3" fill="#FFC200" stroke="${OL}" stroke-width=".9"/>
+    <path d="M23.5,3 Q27,-1.5 24.5,-2.5 Q21.5,1.5 23.5,3" fill="#FFC200" stroke="${OL}" stroke-width=".9"/>`;
+
+  /* body + wings */
+  const _B  = `
+    <ellipse cx="20" cy="31" rx="12" ry="9.5" fill="#FFE234" stroke="${OL}" stroke-width="1.3"/>
+    <ellipse cx="17" cy="28" rx="6" ry="3.5" fill="#fff" opacity=".18"/>`;
+  const _LW = `<path d="M8,25 Q1,32 4,40 Q10,37 11,30 Z" fill="#FFC200" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>`;
+  const _RW = `<path d="M32,25 Q39,32 36,40 Q30,37 29,30 Z" fill="#FFC200" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>`;
+
+  /* legs */
+  const _L = `
+    <rect x="13.5" y="39" width="3" height="6" rx="1.5" fill="#FF9500" stroke="${OL}" stroke-width=".8"/>
+    <rect x="23.5" y="39" width="3" height="6" rx="1.5" fill="#FF9500" stroke="${OL}" stroke-width=".8"/>`;
+
+  /* ── accessories ─── */
+
+  /* 👟 cherry-red sneakers with white sole stripe */
+  const _shoes = `
+    <rect x="8"  y="42.5" width="11" height="5.5" rx="2.8" fill="#FF4757" stroke="${OL}" stroke-width="1"/>
+    <rect x="21" y="42.5" width="11" height="5.5" rx="2.8" fill="#FF4757" stroke="${OL}" stroke-width="1"/>
+    <rect x="9"  y="41.2" width="9"  height="2.8" rx="1.4" fill="#CC0022" stroke="${OL}" stroke-width=".7"/>
+    <rect x="22" y="41.2" width="9"  height="2.8" rx="1.4" fill="#CC0022" stroke="${OL}" stroke-width=".7"/>
+    <rect x="10" y="44"   width="7"  height="1.2" rx=".6" fill="#fff" opacity=".55"/>
+    <rect x="23" y="44"   width="7"  height="1.2" rx=".6" fill="#fff" opacity=".55"/>`;
+
+  /* 🎒 bright-green backpack body — drawn BEFORE body (behind chick) */
+  const _packBody = `
+    <rect x="29.5" y="21" width="11" height="17" rx="3"   fill="#2ECC71" stroke="${OL}" stroke-width="1"/>
+    <rect x="30.5" y="19" width="9"  height="4"  rx="2"   fill="#A8EDCC" stroke="${OL}" stroke-width=".8"/>
+    <rect x="31.5" y="26.5" width="7" height="3" rx="1.5" fill="#27AE60" stroke="${OL}" stroke-width=".7"/>
+    <rect x="31"   y="35"   width="8" height="2" rx="1"   fill="#27AE60" stroke="${OL}" stroke-width=".6"/>
+    <rect x="33" y="21.5" width="5" height="8" rx="1" fill="#27AE60" opacity=".35"/>`;
+
+  /* backpack straps — drawn AFTER body (cross chest visibly) */
+  const _packStraps = `
+    <path d="M32,23 Q27,26 25.5,32 Q24,37.5 22,40"
+          fill="none" stroke="#2ECC71" stroke-width="2.8" stroke-linecap="round"/>
+    <path d="M32,23 Q27,26 25.5,32 Q24,37.5 22,40"
+          fill="none" stroke="${OL}" stroke-width="1" stroke-linecap="round" opacity=".55"/>
+    <rect x="18" y="28" width="6" height="2.2" rx="1.1" fill="#27AE60" stroke="${OL}" stroke-width=".7"/>`;
+
+  /* 🗺️ parchment map held in left wing */
+  const _map = `
+    <g transform="rotate(12 7 33)">
+      <rect x="0"   y="25" width="13"  height="17" rx="2"   fill="#FFD07A" stroke="${OL}" stroke-width="1"/>
+      <rect x="0"   y="25" width="3.5" height="17" rx="1.7" fill="#C47C1E" stroke="${OL}" stroke-width=".8"/>
+      <rect x="9.5" y="25" width="3.5" height="17" rx="1.7" fill="#C47C1E" stroke="${OL}" stroke-width=".8"/>
+      <line x1="4.5" y1="30" x2="10.5" y2="30" stroke="#9A6010" stroke-width="1.1"/>
+      <line x1="4.5" y1="34" x2="10.5" y2="34" stroke="#9A6010" stroke-width="1.1"/>
+      <line x1="4.5" y1="38" x2="10.5" y2="38" stroke="#9A6010" stroke-width="1.1"/>
+      <circle cx="7.5" cy="30.5" r="1.8" fill="#FF4757" stroke="${OL}" stroke-width=".6"/>
+    </g>`;
+
+  /* 🔭 bright-blue telescope at right eye */
+  const _scope = `
+    <g transform="rotate(-38 20 9)">
+      <rect x="18" y="7"   width="22"  height="5.5" rx="2.75" fill="#3A86FF" stroke="${OL}" stroke-width="1"/>
+      <rect x="18" y="7.5" width="7"   height="4.5" rx="2.25" fill="#74B0FF" stroke="${OL}" stroke-width=".8"/>
+      <ellipse cx="40" cy="9.25" rx="3.5" ry="4.2" fill="#EAF4FF" stroke="${OL}" stroke-width="1"/>
+      <ellipse cx="40" cy="9.25" rx="1.8" ry="2.2" fill="#74B0FF" opacity=".6"/>
+      <circle  cx="39" cy="8.2"  r=".9" fill="#fff" opacity=".9"/>
+    </g>`;
+
+  /* 👑 gold crown — base band grips the head */
+  const _crown = `
+    <path d="M10,8 L14,1 L17,6 L20,-0.5 L23,6 L26,1 L30,8 Z" fill="#FFD700" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+    <path d="M10,8 L30,8 L29,12 L11,12 Z" fill="#FFA500" stroke="${OL}" stroke-width=".9" stroke-linejoin="round"/>
+    <ellipse cx="20" cy="7.5" rx="9" ry="1.5" fill="#fff" opacity=".2"/>
+    <circle cx="20"   cy="0"   r="2"   fill="#FF4757" stroke="${OL}" stroke-width=".7"/>
+    <circle cx="14"   cy="2.5" r="1.4" fill="#74B0FF" stroke="${OL}" stroke-width=".6"/>
+    <circle cx="26"   cy="2.5" r="1.4" fill="#74B0FF" stroke="${OL}" stroke-width=".6"/>`;
+
   const CHICK_ICONS = [
-    /* 1 – หลุดจากไข่ ไม่มีอุปกรณ์ */
-    `<div class="chick-wrap"><span class="chick-main">🐣</span></div>`,
-    /* 2 – ยืนได้แล้ว มีรองเท้า */
-    `<div class="chick-wrap">
-       <span class="chick-main">🐥</span>
-       <span class="chick-gear g-bot">👟</span>
-     </div>`,
-    /* 3 – มีเป้สะพายหลัง */
-    `<div class="chick-wrap">
-       <span class="chick-main">🐥</span>
-       <span class="chick-gear g-right">🎒</span>
-       <span class="chick-gear g-bot">👟</span>
-     </div>`,
-    /* 4 – มีแผนที่ */
-    `<div class="chick-wrap">
-       <span class="chick-main">🐥</span>
-       <span class="chick-gear g-right">🎒</span>
-       <span class="chick-gear g-left">🗺️</span>
-       <span class="chick-gear g-bot">👟</span>
-     </div>`,
-    /* 5 – มีกล้องส่องทางไกล */
-    `<div class="chick-wrap">
-       <span class="chick-main">🐥</span>
-       <span class="chick-gear g-top-right">🔭</span>
-       <span class="chick-gear g-right">🎒</span>
-       <span class="chick-gear g-left">🗺️</span>
-       <span class="chick-gear g-bot">👟</span>
-     </div>`,
-    /* 6 – ครบชุด + มงกุฎ */
-    `<div class="chick-wrap">
-       <span class="chick-main">🐥</span>
-       <span class="chick-gear g-crown">👑</span>
-       <span class="chick-gear g-top-right">🔭</span>
-       <span class="chick-gear g-right">🎒</span>
-       <span class="chick-gear g-left">🗺️</span>
-       <span class="chick-gear g-bot">👟</span>
-     </div>`,
+    /* 0 – hatchling in egg */
+    _S(`
+      <path d="M3,26 Q2,48 20,48 Q38,48 37,26 Z" fill="#FFFBF0" stroke="#D4B896" stroke-width="1.5"/>
+      <ellipse cx="20" cy="39" rx="8" ry="4" fill="#fff" opacity=".3"/>
+      <polyline points="3,26 8,21 13,25 18,18 20,23 22,18 27,22 32,20 37,26"
+        fill="none" stroke="#C8A87A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <ellipse cx="20" cy="38" rx="14" ry="9" fill="#FFE234" stroke="${OL}" stroke-width="1.3"/>
+      <ellipse cx="8"  cy="33" rx="4.5" ry="7" fill="#FFC200" stroke="${OL}" stroke-width="1" transform="rotate(-20 8 33)"/>
+      <ellipse cx="32" cy="33" rx="4.5" ry="7" fill="#FFC200" stroke="${OL}" stroke-width="1" transform="rotate(20 32 33)"/>
+      ${_H}${_T}`),
+
+    /* 1 – standing + shoes */
+    _S(`${_B}${_LW}${_RW}${_L}${_shoes}${_H}${_T}`),
+
+    /* 2 – + backpack */
+    _S(`${_packBody}${_B}${_LW}${_RW}${_packStraps}${_L}${_shoes}${_H}${_T}`),
+
+    /* 3 – + map */
+    _S(`${_packBody}${_B}${_LW}${_map}${_RW}${_packStraps}${_L}${_shoes}${_H}${_T}`),
+
+    /* 4 – + telescope */
+    _S(`${_packBody}${_B}${_LW}${_map}${_RW}${_packStraps}${_L}${_shoes}${_scope}${_H}${_T}`),
+
+    /* 5 – + crown */
+    _S(`${_packBody}${_B}${_LW}${_map}${_RW}${_packStraps}${_L}${_shoes}${_scope}${_H}${_T}${_crown}`),
   ];
 
   /* All rank definitions for the scroll showcase */

@@ -101,8 +101,6 @@ const I18n = (() => {
       'settings.lang_en':      'English',
       'settings.about':        'เกี่ยวกับ',
       'settings.version':      'Voice Map v1.0',
-      /* POI overlay */
-      'poi.title':             '📍 สถานที่ใกล้เคียง',
     },
 
     en: {
@@ -200,8 +198,6 @@ const I18n = (() => {
       'settings.lang_en':      'English',
       'settings.about':        'About',
       'settings.version':      'Voice Map v1.0',
-      /* POI overlay */
-      'poi.title':             '📍 Nearby Places',
     }
   };
 

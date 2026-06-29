@@ -27,8 +27,16 @@ const App = (() => {
     await VoiceMapDB.init();
     await SeedData.run();
 
-    map = L.map('map', { zoomControl: false, attributionControl: false })
-           .setView([13.7563, 100.5018], 15);
+    // จำกัดแผนที่เฉพาะจังหวัดขอนแก่น
+    const KKN_BOUNDS = L.latLngBounds([15.45, 101.55], [17.10, 103.25]);
+
+    map = L.map('map', {
+      zoomControl: false,
+      attributionControl: false,
+      maxBounds: KKN_BOUNDS,
+      maxBoundsViscosity: 1.0,
+      minZoom: 9,
+    }).setView([16.4322, 102.8236], 11);
 
     streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 19, subdomains: 'abcd',
@@ -409,6 +417,7 @@ const App = (() => {
     });
 
     bindSearch();
+    initSurprise();
   }
 
   /* ── Page switching ──────────────────────────────────────── */
@@ -903,6 +912,61 @@ const App = (() => {
   }
 
   /* ── Utilities ───────────────────────────────────────────── */
+  /* ── Surprise Me ─────────────────────────────────────────── */
+  function initSurprise() {
+    const overlay   = document.getElementById('surpriseOverlay');
+    const card      = overlay.querySelector('.surprise-card');
+    const closeBtn  = document.getElementById('surpriseClose');
+    const rerollBtn = document.getElementById('surpriseRerollBtn');
+    const goBtn     = document.getElementById('surpriseGoBtn');
+    let currentPin  = null;
+
+    document.getElementById('surpriseBtn').addEventListener('click', roll);
+    closeBtn.addEventListener('click', hide);
+    rerollBtn.addEventListener('click', roll);
+    overlay.addEventListener('click', e => { if (e.target === overlay) hide(); });
+
+    goBtn.addEventListener('click', () => {
+      hide();
+      if (!currentPin) return;
+      switchPage('map');
+      map.flyTo([currentPin.lat, currentPin.lng], 16, { duration: 1.2 });
+      setTimeout(() => showPinSheet(currentPin), 1300);
+    });
+
+    function roll() {
+      const pins = PinStorage.getAll().filter(p => p.id.startsWith('pin_seed_'));
+      if (!pins.length) return;
+      // avoid repeating the same pin twice in a row if possible
+      const pool = pins.length > 1 && currentPin
+        ? pins.filter(p => p.id !== currentPin.id)
+        : pins;
+      currentPin = pool[Math.floor(Math.random() * pool.length)];
+
+      document.getElementById('surpriseName').textContent = currentPin.name;
+      document.getElementById('surpriseDesc').textContent = currentPin.description || '';
+
+      const distEl     = document.getElementById('surpriseDist');
+      const distTextEl = document.getElementById('surpriseDistText');
+      if (userLat !== null) {
+        const m = NavManager.haversine(userLat, userLng, currentPin.lat, currentPin.lng);
+        distTextEl.textContent = `ห่างจากคุณ ${NavManager.fmtDist(m)}`;
+        distEl.classList.remove('hidden');
+      } else {
+        distEl.classList.add('hidden');
+      }
+
+      overlay.classList.remove('hidden');
+      // double-rAF ensures transition fires after display change
+      requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('show')));
+    }
+
+    function hide() {
+      card.classList.remove('show');
+      setTimeout(() => overlay.classList.add('hidden'), 320);
+    }
+  }
+
   function _esc(s) {
     return String(s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;')

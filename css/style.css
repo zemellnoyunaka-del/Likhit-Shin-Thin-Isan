@@ -537,6 +537,69 @@ body { font-family: 'CS Prajad', 'Sarabun', 'Segoe UI', system-ui, -apple-system
 
 
 
+/* ── Surprise Me ─────────────────────────────────────────── */
+.home-surprise-wrap { padding: 0 20px 24px; }
+.home-surprise-btn {
+  width: 100%; height: 54px;
+  border: 2px dashed var(--accent); border-radius: 16px;
+  background: linear-gradient(135deg, rgba(245,158,11,.07), rgba(251,191,36,.13));
+  color: var(--accent); font-size: .97rem; font-weight: 700;
+  font-family: 'Sarabun', sans-serif; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: transform .15s, box-shadow .2s;
+}
+.home-surprise-btn:active { transform: scale(0.97); }
+.surprise-btn-dice { font-size: 1.25rem; display: inline-block; animation: dice-wiggle 4s ease-in-out infinite; will-change: transform; }
+@keyframes dice-wiggle {
+  0%,85%,100% { transform: rotate(0deg) scale(1); }
+  90% { transform: rotate(18deg) scale(1.15); }
+  95% { transform: rotate(-10deg) scale(1.1); }
+}
+
+.surprise-overlay {
+  position: fixed; inset: 0; z-index: 2100;
+  background: rgba(15,15,30,.55);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: calc(var(--nav-h) + 20px);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+.surprise-card {
+  position: relative; width: calc(100% - 32px); max-width: 440px;
+  background: var(--bg-card); border-radius: 24px;
+  padding: 28px 24px 26px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.28);
+  transform: translateY(52px); opacity: 0;
+  transition: transform .38s cubic-bezier(.34,1.56,.64,1), opacity .28s ease;
+}
+.surprise-card.show { transform: translateY(0); opacity: 1; }
+.surprise-close {
+  position: absolute; top: 14px; right: 14px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 18px;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.surprise-eyebrow {
+  font-size: .7rem; font-weight: 700; letter-spacing: .1em;
+  color: var(--accent); text-transform: uppercase; margin-bottom: 14px;
+}
+.surprise-name {
+  font-size: 1.4rem; font-weight: 700; color: var(--text-primary);
+  font-family: 'Chakra Petch', 'Sarabun', sans-serif;
+  margin-bottom: 10px; line-height: 1.3;
+}
+.surprise-desc-text {
+  font-size: .88rem; color: var(--text-muted);
+  line-height: 1.75; margin-bottom: 14px;
+}
+.surprise-dist {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .82rem; font-weight: 600; color: var(--primary);
+  margin-bottom: 22px;
+}
+.surprise-btns { display: flex; gap: 10px; }
+.surprise-btns .btn { flex: 1; }
+
 /* ── Toast ───────────────────────────────────────────────── */
 .toast {
   position: fixed; bottom: calc(88px + var(--nav-h)); left: 50%;

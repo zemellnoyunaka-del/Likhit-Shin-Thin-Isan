@@ -60,6 +60,14 @@
       </button>
     </div>
 
+    <!-- Surprise Me -->
+    <div class="home-surprise-wrap">
+      <button type="button" class="home-surprise-btn" id="surpriseBtn">
+        <span class="surprise-btn-dice">🎲</span>
+        <span>วันนี้ไปไหนดี?</span>
+      </button>
+    </div>
+
     <!-- Recent visits -->
     <div class="home-section">
       <div class="home-section-title" data-i18n="home.recent">📜 เยี่ยมชมล่าสุด</div>
@@ -236,6 +244,23 @@
     <button type="button" class="map-search-clear hidden" id="mapSearchClear" title="ล้าง">✕</button>
   </div>
   <div class="map-search-results hidden" id="mapSearchResults"></div>
+</div>
+
+<!-- Surprise Me overlay -->
+<div class="surprise-overlay hidden" id="surpriseOverlay">
+  <div class="surprise-card">
+    <button type="button" class="surprise-close" id="surpriseClose">✕</button>
+    <div class="surprise-eyebrow">🎲 สถานที่แนะนำวันนี้</div>
+    <div class="surprise-name" id="surpriseName"></div>
+    <div class="surprise-desc-text" id="surpriseDesc"></div>
+    <div class="surprise-dist hidden" id="surpriseDist">
+      <span>📏</span><span id="surpriseDistText"></span>
+    </div>
+    <div class="surprise-btns">
+      <button type="button" class="btn btn-primary" id="surpriseGoBtn">🧭 ไปเลย!</button>
+      <button type="button" class="btn btn-outline" id="surpriseRerollBtn">🎲 สุ่มใหม่</button>
+    </div>
+  </div>
 </div>
 
 <!-- Floating buttons (map + voice map pages) -->

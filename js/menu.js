@@ -51,7 +51,7 @@ const MenuManager = (() => {
     if (!history.length) {
       container.innerHTML = `
         <div class="lp-empty">
-          <div class="lp-empty-icon">🗺️</div>
+          <div class="lp-empty-icon"><svg class="icon" aria-hidden="true"><use href="#ic-map"/></svg></div>
           <div class="lp-empty-text">${I18n.t('lp.no_history')}</div>
         </div>`;
       return;
@@ -71,12 +71,12 @@ const MenuManager = (() => {
       entries.forEach(entry => {
         html += `
           <div class="history-item">
-            <div class="history-pin-dot">📍</div>
+            <div class="history-pin-dot"><svg class="icon" aria-hidden="true"><use href="#ic-pin"/></svg></div>
             <div class="history-body">
               <div class="history-name">${esc(entry.pinName)}</div>
               <div class="history-time">${timeLabel(entry.visitedAt)}</div>
             </div>
-            <button class="history-play" data-pin-id="${entry.pinId}" title="ฟังเสียงซ้ำ">🔊</button>
+            <button class="history-play" data-pin-id="${entry.pinId}" title="ฟังเสียงซ้ำ"><svg class="icon" aria-hidden="true"><use href="#ic-speaker"/></svg></button>
           </div>`;
       });
     }
@@ -91,32 +91,34 @@ const MenuManager = (() => {
 
   async function replayAudio(btn) {
     const pinId = btn.dataset.pinId;
+    const _spk = `<svg class="icon" aria-hidden="true"><use href="#ic-speaker"/></svg>`;
+    const _ply = `<svg class="icon" aria-hidden="true"><use href="#ic-play"/></svg>`;
     btn.disabled = true;
-    btn.textContent = '⏳';
+    btn.innerHTML = '…';
 
     try {
       const blob = await VoiceMapDB.getAudio(pinId);
       if (!blob) {
-        btn.textContent = '🚫';
-        setTimeout(() => { btn.textContent = '🔊'; btn.disabled = false; }, 2000);
+        btn.innerHTML = '✕';
+        setTimeout(() => { btn.innerHTML = _spk; btn.disabled = false; }, 2000);
         return;
       }
-      btn.textContent = '▶️';
+      btn.innerHTML = _ply;
       await AudioManager.playBlob(blob);
     } catch {
-      btn.textContent = '🚫';
-      setTimeout(() => { btn.textContent = '🔊'; }, 2000);
+      btn.innerHTML = '✕';
+      setTimeout(() => { btn.innerHTML = _spk; }, 2000);
     } finally {
-      setTimeout(() => { btn.textContent = '🔊'; btn.disabled = false; }, 500);
+      setTimeout(() => { btn.innerHTML = _spk; btn.disabled = false; }, 500);
     }
   }
 
   /* ── Level definitions (based on total visit count) ─────── */
   const LEVELS = [
-    { lv: 1, icon: '🥾', key: 'level.1', min: 0,  next: 5  },
-    { lv: 2, icon: '🚶', key: 'level.2', min: 5,  next: 10 },
-    { lv: 3, icon: '🧭', key: 'level.3', min: 10, next: 20 },
-    { lv: 4, icon: '🏆', key: 'level.4', min: 20, next: null },
+    { lv: 1, icon: 'I',   key: 'level.1', min: 0,  next: 5  },
+    { lv: 2, icon: 'II',  key: 'level.2', min: 5,  next: 10 },
+    { lv: 3, icon: 'III', key: 'level.3', min: 10, next: 20 },
+    { lv: 4, icon: 'IV',  key: 'level.4', min: 20, next: null },
   ];
 
   function getLevelInfo(n) {
@@ -182,7 +184,7 @@ const MenuManager = (() => {
       container.innerHTML = `
         ${levelHtml}
         <div class="lp-empty">
-          <div class="lp-empty-icon">🌍</div>
+          <div class="lp-empty-icon"><svg class="icon" aria-hidden="true"><use href="#ic-map"/></svg></div>
           <div class="lp-empty-text">${I18n.t('lp.no_pins')}</div>
         </div>`;
       return;
@@ -192,7 +194,9 @@ const MenuManager = (() => {
       const done = visited.has(p.id);
       return `
         <div class="checklist-item ${done ? 'done' : 'todo'}">
-          <span class="check-icon">${done ? '✅' : '⬜'}</span>
+          <span class="check-icon">${done
+            ? `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg>`
+            : `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>`}</span>
           <span class="check-name">${esc(p.name)}</span>
         </div>`;
     }).join('');
@@ -229,130 +233,73 @@ const MenuManager = (() => {
     });
   }
 
-  /* ── SVG chick models ─────────────────────────────────────────── */
+  /* ── Medal rank icons ─────────────────────────────────────────── */
   const _S = (i) =>
-    `<div class="chick-wrap"><svg viewBox="0 0 40 48" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">${i}</svg></div>`;
+    `<div class="chick-wrap"><svg viewBox="0 0 40 48" xmlns="http://www.w3.org/2000/svg">${i}</svg></div>`;
 
-  const OL = '#2D2314'; /* warm dark outline */
+  /* 5-pointed star: center (20,32), outer R=6, inner R=2.4 */
+  const _STAR_PTS = '20,26 21.4,30.1 25.7,30.1 22.3,32.7 23.5,36.9 20,34.4 16.5,36.9 17.7,32.7 14.3,30.1 18.6,30.1';
 
-  /* head */
-  const _H = `
-    <circle cx="20" cy="12" r="10.5" fill="#FFE234" stroke="${OL}" stroke-width="1.3"/>
-    <ellipse cx="17" cy="9" rx="5" ry="3" fill="#fff" opacity=".22"/>
-    <ellipse cx="13.5" cy="16" rx="3.8" ry="2.4" fill="#FFB7C5" opacity=".85"/>
-    <ellipse cx="26.5" cy="16" rx="3.8" ry="2.4" fill="#FFB7C5" opacity=".85"/>
-    <circle cx="15.5" cy="11"   r="3.2" fill="#fff" stroke="${OL}" stroke-width=".7"/>
-    <circle cx="24.5" cy="11"   r="3.2" fill="#fff" stroke="${OL}" stroke-width=".7"/>
-    <circle cx="16"   cy="11.6" r="2.1" fill="#2D2D2D"/>
-    <circle cx="25"   cy="11.6" r="2.1" fill="#2D2D2D"/>
-    <circle cx="17"   cy="10.6" r=".85" fill="#fff"/>
-    <circle cx="26"   cy="10.6" r=".85" fill="#fff"/>
-    <circle cx="15.3" cy="13"   r=".45" fill="#fff" opacity=".65"/>
-    <circle cx="24.3" cy="13"   r=".45" fill="#fff" opacity=".65"/>
-    <path d="M17.5,16 L22.5,16 L20,20" fill="#FF8C00" stroke="${OL}" stroke-width=".8" stroke-linejoin="round"/>`;
+  const _medal = (idx, rd, rl, mb, ms, rc) => {
+    const g = `vmrg${idx}`;
+    return _S(`
+      <defs><radialGradient id="${g}" cx="38%" cy="28%" r="65%">
+        <stop offset="0%" stop-color="${ms}"/>
+        <stop offset="100%" stop-color="${mb}"/>
+      </radialGradient></defs>
+      <ellipse cx="20" cy="47" rx="10" ry="1.5" fill="rgba(0,0,0,0.15)"/>
+      <polygon points="13,0 27,0 24,13 16,13" fill="${rl}"/>
+      <polygon points="13,0 20,0 20,13 16,13" fill="${rd}"/>
+      <line x1="20" y1="0" x2="20" y2="13" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+      <circle cx="20" cy="13" r="3.2" fill="none" stroke="${rc}" stroke-width="2.2"/>
+      <circle cx="21" cy="33" r="13" fill="rgba(0,0,0,0.13)"/>
+      <circle cx="20" cy="32" r="13" fill="url(#${g})"/>
+      <circle cx="20" cy="32" r="13" fill="none" stroke="${rc}" stroke-width="1.5"/>
+      <ellipse cx="15" cy="26.5" rx="4.5" ry="3" fill="rgba(255,255,255,0.22)" transform="rotate(-30 15 26.5)"/>
+      <circle cx="20" cy="32" r="9.5" fill="none" stroke="${rc}" stroke-width="0.6" opacity="0.4"/>
+      <polygon points="${_STAR_PTS}" fill="${ms}" stroke="${rc}" stroke-width="0.5" stroke-linejoin="round"/>
+    `);
+  };
 
-  /* tuft */
-  const _T = `
-    <path d="M20,2 Q18.5,-1.5 20,-2.5 Q21.5,-1.5 20,2"   fill="#FFE234" stroke="${OL}" stroke-width=".9"/>
-    <path d="M16.5,3 Q13,-1.5 15.5,-2.5 Q18.5,1.5 16.5,3" fill="#FFC200" stroke="${OL}" stroke-width=".9"/>
-    <path d="M23.5,3 Q27,-1.5 24.5,-2.5 Q21.5,1.5 23.5,3" fill="#FFC200" stroke="${OL}" stroke-width=".9"/>`;
-
-  /* body + wings */
-  const _B  = `
-    <ellipse cx="20" cy="31" rx="12" ry="9.5" fill="#FFE234" stroke="${OL}" stroke-width="1.3"/>
-    <ellipse cx="17" cy="28" rx="6" ry="3.5" fill="#fff" opacity=".18"/>`;
-  const _LW = `<path d="M8,25 Q1,32 4,40 Q10,37 11,30 Z" fill="#FFC200" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>`;
-  const _RW = `<path d="M32,25 Q39,32 36,40 Q30,37 29,30 Z" fill="#FFC200" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>`;
-
-  /* legs */
-  const _L = `
-    <rect x="13.5" y="39" width="3" height="6" rx="1.5" fill="#FF9500" stroke="${OL}" stroke-width=".8"/>
-    <rect x="23.5" y="39" width="3" height="6" rx="1.5" fill="#FF9500" stroke="${OL}" stroke-width=".8"/>`;
-
-  /* ── accessories ─── */
-
-  /* 👟 cherry-red sneakers with white sole stripe */
-  const _shoes = `
-    <rect x="8"  y="42.5" width="11" height="5.5" rx="2.8" fill="#FF4757" stroke="${OL}" stroke-width="1"/>
-    <rect x="21" y="42.5" width="11" height="5.5" rx="2.8" fill="#FF4757" stroke="${OL}" stroke-width="1"/>
-    <rect x="9"  y="41.2" width="9"  height="2.8" rx="1.4" fill="#CC0022" stroke="${OL}" stroke-width=".7"/>
-    <rect x="22" y="41.2" width="9"  height="2.8" rx="1.4" fill="#CC0022" stroke="${OL}" stroke-width=".7"/>
-    <rect x="10" y="44"   width="7"  height="1.2" rx=".6" fill="#fff" opacity=".55"/>
-    <rect x="23" y="44"   width="7"  height="1.2" rx=".6" fill="#fff" opacity=".55"/>`;
-
-  /* 🎒 bright-green backpack body — drawn BEFORE body (behind chick) */
-  const _packBody = `
-    <rect x="29.5" y="21" width="11" height="17" rx="3"   fill="#2ECC71" stroke="${OL}" stroke-width="1"/>
-    <rect x="30.5" y="19" width="9"  height="4"  rx="2"   fill="#A8EDCC" stroke="${OL}" stroke-width=".8"/>
-    <rect x="31.5" y="26.5" width="7" height="3" rx="1.5" fill="#27AE60" stroke="${OL}" stroke-width=".7"/>
-    <rect x="31"   y="35"   width="8" height="2" rx="1"   fill="#27AE60" stroke="${OL}" stroke-width=".6"/>
-    <rect x="33" y="21.5" width="5" height="8" rx="1" fill="#27AE60" opacity=".35"/>`;
-
-  /* backpack straps — drawn AFTER body (cross chest visibly) */
-  const _packStraps = `
-    <path d="M32,23 Q27,26 25.5,32 Q24,37.5 22,40"
-          fill="none" stroke="#2ECC71" stroke-width="2.8" stroke-linecap="round"/>
-    <path d="M32,23 Q27,26 25.5,32 Q24,37.5 22,40"
-          fill="none" stroke="${OL}" stroke-width="1" stroke-linecap="round" opacity=".55"/>
-    <rect x="18" y="28" width="6" height="2.2" rx="1.1" fill="#27AE60" stroke="${OL}" stroke-width=".7"/>`;
-
-  /* 🗺️ parchment map held in left wing */
-  const _map = `
-    <g transform="rotate(12 7 33)">
-      <rect x="0"   y="25" width="13"  height="17" rx="2"   fill="#FFD07A" stroke="${OL}" stroke-width="1"/>
-      <rect x="0"   y="25" width="3.5" height="17" rx="1.7" fill="#C47C1E" stroke="${OL}" stroke-width=".8"/>
-      <rect x="9.5" y="25" width="3.5" height="17" rx="1.7" fill="#C47C1E" stroke="${OL}" stroke-width=".8"/>
-      <line x1="4.5" y1="30" x2="10.5" y2="30" stroke="#9A6010" stroke-width="1.1"/>
-      <line x1="4.5" y1="34" x2="10.5" y2="34" stroke="#9A6010" stroke-width="1.1"/>
-      <line x1="4.5" y1="38" x2="10.5" y2="38" stroke="#9A6010" stroke-width="1.1"/>
-      <circle cx="7.5" cy="30.5" r="1.8" fill="#FF4757" stroke="${OL}" stroke-width=".6"/>
-    </g>`;
-
-  /* 🔭 bright-blue telescope at right eye */
-  const _scope = `
-    <g transform="rotate(-38 20 9)">
-      <rect x="18" y="7"   width="22"  height="5.5" rx="2.75" fill="#3A86FF" stroke="${OL}" stroke-width="1"/>
-      <rect x="18" y="7.5" width="7"   height="4.5" rx="2.25" fill="#74B0FF" stroke="${OL}" stroke-width=".8"/>
-      <ellipse cx="40" cy="9.25" rx="3.5" ry="4.2" fill="#EAF4FF" stroke="${OL}" stroke-width="1"/>
-      <ellipse cx="40" cy="9.25" rx="1.8" ry="2.2" fill="#74B0FF" opacity=".6"/>
-      <circle  cx="39" cy="8.2"  r=".9" fill="#fff" opacity=".9"/>
-    </g>`;
-
-  /* 👑 gold crown — base band grips the head */
-  const _crown = `
-    <path d="M10,8 L14,1 L17,6 L20,-0.5 L23,6 L26,1 L30,8 Z" fill="#FFD700" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
-    <path d="M10,8 L30,8 L29,12 L11,12 Z" fill="#FFA500" stroke="${OL}" stroke-width=".9" stroke-linejoin="round"/>
-    <ellipse cx="20" cy="7.5" rx="9" ry="1.5" fill="#fff" opacity=".2"/>
-    <circle cx="20"   cy="0"   r="2"   fill="#FF4757" stroke="${OL}" stroke-width=".7"/>
-    <circle cx="14"   cy="2.5" r="1.4" fill="#74B0FF" stroke="${OL}" stroke-width=".6"/>
-    <circle cx="26"   cy="2.5" r="1.4" fill="#74B0FF" stroke="${OL}" stroke-width=".6"/>`;
+  const _medalCrown = (rd, rl, mb, ms, rc) => {
+    const g = 'vmrg5';
+    return _S(`
+      <defs><radialGradient id="${g}" cx="38%" cy="28%" r="65%">
+        <stop offset="0%" stop-color="${ms}"/>
+        <stop offset="100%" stop-color="${mb}"/>
+      </radialGradient></defs>
+      <ellipse cx="20" cy="47" rx="10" ry="1.5" fill="rgba(0,0,0,0.15)"/>
+      <polygon points="13,0 27,0 24,13 16,13" fill="${rl}"/>
+      <polygon points="13,0 20,0 20,13 16,13" fill="${rd}"/>
+      <line x1="20" y1="0" x2="20" y2="13" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+      <circle cx="20" cy="13" r="3.2" fill="none" stroke="${rc}" stroke-width="2.2"/>
+      <circle cx="21" cy="33" r="13" fill="rgba(0,0,0,0.13)"/>
+      <circle cx="20" cy="32" r="13" fill="url(#${g})"/>
+      <circle cx="20" cy="32" r="13" fill="none" stroke="${rc}" stroke-width="1.5"/>
+      <ellipse cx="15" cy="26.5" rx="4.5" ry="3" fill="rgba(255,255,255,0.22)" transform="rotate(-30 15 26.5)"/>
+      <circle cx="20" cy="32" r="9.5" fill="none" stroke="${rc}" stroke-width="0.6" opacity="0.4"/>
+      <path d="M15.5,39.5 L15.5,34.5 L18,37 L20,31 L22,37 L24.5,34.5 L24.5,39.5 Z"
+            fill="${mb}" stroke="${rc}" stroke-width="0.9" stroke-linejoin="round"/>
+      <rect x="15" y="37" width="10" height="2.5" rx="1.2" fill="${mb}" stroke="${rc}" stroke-width="0.6"/>
+      <circle cx="17.5" cy="34.5" r="1.3" fill="${ms}"/>
+      <circle cx="20"   cy="31.5" r="1.3" fill="${ms}"/>
+      <circle cx="22.5" cy="34.5" r="1.3" fill="${ms}"/>
+    `);
+  };
 
   const CHICK_ICONS = [
-    /* 0 – hatchling in egg */
-    _S(`
-      <path d="M3,26 Q2,48 20,48 Q38,48 37,26 Z" fill="#FFFBF0" stroke="#D4B896" stroke-width="1.5"/>
-      <ellipse cx="20" cy="39" rx="8" ry="4" fill="#fff" opacity=".3"/>
-      <polyline points="3,26 8,21 13,25 18,18 20,23 22,18 27,22 32,20 37,26"
-        fill="none" stroke="#C8A87A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <ellipse cx="20" cy="38" rx="14" ry="9" fill="#FFE234" stroke="${OL}" stroke-width="1.3"/>
-      <ellipse cx="8"  cy="33" rx="4.5" ry="7" fill="#FFC200" stroke="${OL}" stroke-width="1" transform="rotate(-20 8 33)"/>
-      <ellipse cx="32" cy="33" rx="4.5" ry="7" fill="#FFC200" stroke="${OL}" stroke-width="1" transform="rotate(20 32 33)"/>
-      ${_H}${_T}`),
-
-    /* 1 – standing + shoes */
-    _S(`${_B}${_LW}${_RW}${_L}${_shoes}${_H}${_T}`),
-
-    /* 2 – + backpack */
-    _S(`${_packBody}${_B}${_LW}${_RW}${_packStraps}${_L}${_shoes}${_H}${_T}`),
-
-    /* 3 – + map */
-    _S(`${_packBody}${_B}${_LW}${_map}${_RW}${_packStraps}${_L}${_shoes}${_H}${_T}`),
-
-    /* 4 – + telescope */
-    _S(`${_packBody}${_B}${_LW}${_map}${_RW}${_packStraps}${_L}${_shoes}${_scope}${_H}${_T}`),
-
-    /* 5 – + crown */
-    _S(`${_packBody}${_B}${_LW}${_map}${_RW}${_packStraps}${_L}${_shoes}${_scope}${_H}${_T}${_crown}`),
+    /* 0 – Bronze    (ผู้เริ่มต้น) */
+    _medal(0, '#6B3A0E', '#9B5A2A', '#8B4513', '#D29060', '#7B5020'),
+    /* 1 – Copper    (นักเดินทาง) */
+    _medal(1, '#7B5500', '#B87820', '#B87333', '#E8B060', '#9B7030'),
+    /* 2 – Silver    (ผู้สำรวจ) */
+    _medal(2, '#5A6878', '#8898A8', '#8898B0', '#D0D8E0', '#7890A8'),
+    /* 3 – Blue      (นักผจญภัย) */
+    _medal(3, '#1A3070', '#2858B0', '#2858A8', '#7AAAE0', '#3868C0'),
+    /* 4 – Gold      (ผู้พเนจร) */
+    _medal(4, '#7B5800', '#C09000', '#B89000', '#FFD700', '#C09800'),
+    /* 5 – Platinum  (ผู้พเนจรผู้ยิ่งใหญ่) */
+    _medalCrown('#501070', '#8030B8', '#7020A8', '#C870FF', '#9030D0'),
   ];
 
   /* All rank definitions for the scroll showcase */

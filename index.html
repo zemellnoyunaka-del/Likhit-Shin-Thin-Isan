@@ -6,11 +6,122 @@
   <title>Voice Map – แผนที่เสียง</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Chakra+Petch:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sarabun:wght@300;400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+
+<!-- ══ SVG Icon Sprite ═══════════════════════════════════════ -->
+<svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ic-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+    <line x1="8" y1="2" x2="8" y2="18"/>
+    <line x1="16" y1="6" x2="16" y2="22"/>
+  </symbol>
+  <symbol id="ic-speaker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+  </symbol>
+  <symbol id="ic-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </symbol>
+  <symbol id="ic-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+    <circle cx="12" cy="10" r="3"/>
+  </symbol>
+  <symbol id="ic-navigate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+  </symbol>
+  <symbol id="ic-stop" viewBox="0 0 24 24" fill="currentColor">
+    <rect x="3" y="3" width="18" height="18" rx="3"/>
+  </symbol>
+  <symbol id="ic-scroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="16" y1="13" x2="8" y2="13"/>
+    <line x1="16" y1="17" x2="8" y2="17"/>
+  </symbol>
+  <symbol id="ic-distance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <polyline points="8 7 3 12 8 17"/>
+    <polyline points="16 7 21 12 16 17"/>
+  </symbol>
+  <symbol id="ic-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="3" y1="6" x2="21" y2="6"/>
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <line x1="3" y1="18" x2="21" y2="18"/>
+  </symbol>
+  <symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="11" cy="11" r="8"/>
+    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+  </symbol>
+  <symbol id="ic-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="16 3 21 3 21 8"/>
+    <line x1="4" y1="20" x2="21" y2="3"/>
+    <polyline points="21 16 21 21 16 21"/>
+    <line x1="15" y1="15" x2="21" y2="21"/>
+    <line x1="4" y1="4" x2="9" y2="9"/>
+  </symbol>
+  <symbol id="ic-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+    <polyline points="2 17 12 22 22 17"/>
+    <polyline points="2 12 12 17 22 12"/>
+  </symbol>
+  <symbol id="ic-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6" y="4" width="4" height="16"/>
+    <rect x="14" y="4" width="4" height="16"/>
+  </symbol>
+  <symbol id="ic-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="5 3 19 12 5 21 5 3"/>
+  </symbol>
+  <symbol id="ic-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1C9.61 21 2 13.39 2 4c0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.01L6.6 10.8z"/>
+  </symbol>
+  <symbol id="ic-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12 6 12 12 16 14"/>
+  </symbol>
+  <symbol id="ic-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="2" y1="12" x2="22" y2="12"/>
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+  </symbol>
+  <!-- ── ไอคอนประเภทหมุด (แสดงในมาร์กเกอร์บนแผนที่) ─────────── -->
+  <symbol id="ic-pin-temple" viewBox="0 0 24 24">
+    <path d="M3 22h18"/>
+    <path d="M5 22V10L12 4l7 6v12"/>
+    <path d="M9 22v-7h6v7"/>
+  </symbol>
+  <symbol id="ic-pin-chedi" viewBox="0 0 24 24">
+    <line x1="12" y1="2" x2="12" y2="5"/>
+    <path d="M10 5h4"/>
+    <path d="M8 8h8"/>
+    <path d="M6 11h12"/>
+    <path d="M4 14h16v7H4z"/>
+  </symbol>
+  <symbol id="ic-pin-shrine" viewBox="0 0 24 24">
+    <line x1="12" y1="2" x2="12" y2="22"/>
+    <path d="M8 2h8v3H8z"/>
+    <path d="M8 19h8v3H8z"/>
+    <line x1="10" y1="9" x2="14" y2="9"/>
+    <line x1="10" y1="15" x2="14" y2="15"/>
+  </symbol>
+  <symbol id="ic-pin-khmer" viewBox="0 0 24 24">
+    <path d="M3 21h18"/>
+    <line x1="5" y1="21" x2="5" y2="10"/>
+    <line x1="19" y1="21" x2="19" y2="10"/>
+    <path d="M5 10a7 7 0 0 1 14 0"/>
+    <path d="M10 21v-5h4v5"/>
+  </symbol>
+  <symbol id="ic-pin-buddha" viewBox="0 0 24 24">
+    <circle cx="12" cy="5" r="2.5"/>
+    <path d="M7 22c0-4 2.2-8 5-9 2.8 1 5 5 5 9"/>
+    <line x1="7" y1="22" x2="17" y2="22"/>
+  </symbol>
+</svg>
 
 <!-- ══ Map (always behind) ══════════════════════════════════ -->
 <div id="map"></div>
@@ -23,27 +134,38 @@
 
     <!-- Hero -->
     <div class="home-hero">
-      <div class="home-logo-icon">🗺️</div>
+      <div class="home-logo-icon">
+        <svg class="icon" aria-hidden="true"><use href="#ic-map"/></svg>
+      </div>
       <h1 class="home-title">Voice Map</h1>
       <p class="home-subtitle" data-i18n="app.subtitle">แผนที่เสียงพูดได้</p>
     </div>
 
     <!-- Stats -->
+    <div class="home-hero-divider"></div>
     <div class="home-stats">
       <div class="stat-card">
         <div class="stat-val" id="homePinCount">–</div>
-        <div class="stat-label" data-i18n="home.stat_pins">📌 หมุดเสียง</div>
+        <div class="stat-label">
+          <svg class="icon" aria-hidden="true"><use href="#ic-pin"/></svg>
+          <span data-i18n="home.stat_pins">หมุดเสียง</span>
+        </div>
       </div>
       <div class="stat-card">
         <div class="stat-val" id="homeVisitCount">–</div>
-        <div class="stat-label" data-i18n="home.stat_visits">🔊 เยี่ยมชม</div>
+        <div class="stat-label">
+          <svg class="icon" aria-hidden="true"><use href="#ic-speaker"/></svg>
+          <span data-i18n="home.stat_visits">เยี่ยมชม</span>
+        </div>
       </div>
     </div>
 
     <!-- Action buttons -->
     <div class="home-actions">
       <button type="button" class="home-btn" id="homeGoMap">
-        <span class="home-btn-icon">🗺️</span>
+        <span class="home-btn-icon">
+          <svg class="icon" aria-hidden="true"><use href="#ic-map"/></svg>
+        </span>
         <div class="home-btn-body">
           <div class="home-btn-title" data-i18n="home.btn_map_title">แผนที่</div>
           <div class="home-btn-sub"   data-i18n="home.btn_map_sub">สำรวจแผนที่ดาวเทียม</div>
@@ -51,7 +173,9 @@
         <span class="home-btn-arrow">›</span>
       </button>
       <button type="button" class="home-btn home-btn-accent" id="homeGoVoice">
-        <span class="home-btn-icon">🔊</span>
+        <span class="home-btn-icon">
+          <svg class="icon" aria-hidden="true"><use href="#ic-speaker"/></svg>
+        </span>
         <div class="home-btn-body">
           <div class="home-btn-title" data-i18n="home.btn_voice_title">Voice Map</div>
           <div class="home-btn-sub"   data-i18n="home.btn_voice_sub">ค้นหาหมุดเสียงรอบตัว</div>
@@ -63,14 +187,17 @@
     <!-- Surprise Me -->
     <div class="home-surprise-wrap">
       <button type="button" class="home-surprise-btn" id="surpriseBtn">
-        <span class="surprise-btn-dice">🎲</span>
+        <svg class="icon" aria-hidden="true"><use href="#ic-shuffle"/></svg>
         <span>วันนี้ไปไหนดี?</span>
       </button>
     </div>
 
     <!-- Recent visits -->
     <div class="home-section">
-      <div class="home-section-title" data-i18n="home.recent">📜 เยี่ยมชมล่าสุด</div>
+      <div class="home-section-title">
+        <svg class="icon" aria-hidden="true"><use href="#ic-scroll"/></svg>
+        <span data-i18n="home.recent">เยี่ยมชมล่าสุด</span>
+      </div>
       <div id="homeRecentList"></div>
     </div>
 
@@ -84,7 +211,9 @@
   <div class="settings-scroll">
 
     <div class="settings-hero">
-      <div class="settings-hero-icon">⚙️</div>
+      <div class="settings-hero-icon">
+        <svg class="icon" aria-hidden="true"><use href="#ic-gear"/></svg>
+      </div>
       <h1 class="settings-page-title" data-i18n="settings.title">ตั้งค่า</h1>
     </div>
 
@@ -114,25 +243,35 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════
-     SHARED MAP UI (แผนที่ + Voice Map pages)
+     SHARED MAP UI
      ══════════════════════════════════════════════════════════ -->
 
 <!-- Hamburger (Voice Map only) -->
-<button type="button" class="menu-toggle" id="menuToggle" title="เมนู">☰</button>
+<button type="button" class="menu-toggle" id="menuToggle" title="เมนู">
+  <svg class="icon" aria-hidden="true"><use href="#ic-menu"/></svg>
+</button>
 
-<!-- Left Panel Overlay + Panel (Voice Map only) -->
+<!-- Left Panel -->
 <div class="left-overlay" id="leftOverlay"></div>
 <div class="left-panel" id="leftPanel">
   <div class="lp-header">
     <div class="lp-header-title">
-      <div class="lp-header-icon">🗺️</div>
+      <div class="lp-header-icon">
+        <svg class="icon" aria-hidden="true"><use href="#ic-map"/></svg>
+      </div>
       Voice Map
     </div>
     <button class="lp-close" id="leftPanelClose" title="ปิด">✕</button>
   </div>
   <div class="lp-tabs">
-    <button type="button" class="lp-tab active" data-tab="history" data-i18n="lp.history">📜 ประวัติการเดินทาง</button>
-    <button type="button" class="lp-tab"        data-tab="wanderer" data-i18n="lp.wanderer">🧭 ผู้พเนจร</button>
+    <button type="button" class="lp-tab active" data-tab="history">
+      <svg class="icon" aria-hidden="true"><use href="#ic-scroll"/></svg>
+      <span data-i18n="lp.history">ประวัติการเดินทาง</span>
+    </button>
+    <button type="button" class="lp-tab" data-tab="wanderer">
+      <svg class="icon" aria-hidden="true"><use href="#ic-navigate"/></svg>
+      <span data-i18n="lp.wanderer">ผู้พเนจร</span>
+    </button>
   </div>
   <div class="lp-body">
     <div class="lp-pane active" id="paneHistory"></div>
@@ -140,11 +279,13 @@
   </div>
 </div>
 
-<!-- Top Bar (GPS status only) -->
+<!-- Top Bar -->
 <div class="top-bar" id="topBar">
   <div class="top-bar-row1" id="topBarRow1">
     <div class="app-logo">
-      <div class="app-logo-icon">🗺️</div>
+      <div class="app-logo-icon">
+        <svg class="icon" aria-hidden="true"><use href="#ic-map"/></svg>
+      </div>
       <span class="app-logo-text">Voice Map</span>
     </div>
     <div class="location-badge">
@@ -154,9 +295,7 @@
   </div>
 </div>
 
-
-<!-- Bottom Panel (Voice Map only) -->
-<!-- Nav Panel – shown only while navigating -->
+<!-- Bottom Panel (navigation) -->
 <div class="bottom-panel hidden" id="bottomPanel">
   <div id="panelNav">
     <div class="nav-instruction hidden" id="navInstruction">
@@ -164,7 +303,10 @@
       <div class="nav-instr-text"  id="navInstrText"></div>
     </div>
     <div class="nav-box">
-      <div class="nav-box-label" data-i18n="panel.nav_to">🧭 นำทางไปยัง</div>
+      <div class="nav-box-label">
+        <svg class="icon" aria-hidden="true"><use href="#ic-navigate"/></svg>
+        <span data-i18n="panel.nav_to">นำทางไปยัง</span>
+      </div>
       <div class="nav-box-dest" id="navDest">–</div>
       <div class="nav-stats">
         <div>
@@ -177,37 +319,57 @@
         </div>
       </div>
     </div>
-    <button class="btn btn-danger btn-full" id="stopNavBtn"
-            data-i18n="panel.stop_nav">⏹️ หยุดนำทาง</button>
+    <button class="btn btn-danger btn-full" id="stopNavBtn">
+      <svg class="icon" aria-hidden="true"><use href="#ic-stop"/></svg>
+      <span data-i18n="panel.stop_nav">หยุดนำทาง</span>
+    </button>
   </div>
 </div>
 
-<!-- Pin Info Sheet (Voice Map only) -->
+<!-- Pin Info Sheet -->
 <div class="sheet-overlay" id="pinSheet">
   <div class="sheet-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <div class="sheet-title" id="sheetTitle">ชื่อสถานที่</div>
-      <button type="button" id="sheetClose" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;">✕</button>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+      <div>
+        <span class="sheet-type-badge hidden" id="sheetTypeBadge"></span>
+        <div class="sheet-title" id="sheetTitle">ชื่อสถานที่</div>
+      </div>
+      <button type="button" id="sheetClose" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;flex-shrink:0;margin-left:8px;">✕</button>
     </div>
     <div class="sheet-desc" id="sheetDesc"></div>
+    <div class="sheet-history hidden" id="sheetHistory">
+      <div class="sheet-history-label">
+        <svg class="icon" aria-hidden="true"><use href="#ic-scroll"/></svg>
+        ประวัติสถานที่
+      </div>
+      <div class="sheet-history-text" id="sheetHistoryText"></div>
+    </div>
     <div class="sheet-poem hidden" id="sheetPoem">
-      <div class="sheet-poem-label">📜 กลอน</div>
+      <div class="sheet-poem-label">
+        <svg class="icon" aria-hidden="true"><use href="#ic-scroll"/></svg>
+        กลอน
+      </div>
       <div class="sheet-poem-text" id="sheetPoemText"></div>
     </div>
     <div class="sheet-meta">
-      <span>📏</span><span data-i18n="sheet.dist">ระยะห่าง:</span>
+      <svg class="icon" aria-hidden="true"><use href="#ic-distance"/></svg>
+      <span data-i18n="sheet.dist">ระยะห่าง:</span>
       <strong id="sheetDist">–</strong>
     </div>
     <div class="sheet-actions">
-      <button type="button" class="btn btn-primary" id="sheetNavBtn" style="flex:1;"
-              data-i18n="sheet.navigate">🧭 นำทาง</button>
-      <button type="button" class="btn btn-outline" id="sheetPlayBtn" style="display:none;"
-              data-i18n="sheet.play">🔊 ฟังเสียง</button>
+      <button type="button" class="btn btn-primary" id="sheetNavBtn" style="flex:1;">
+        <svg class="icon" aria-hidden="true"><use href="#ic-navigate"/></svg>
+        <span data-i18n="sheet.navigate">นำทาง</span>
+      </button>
+      <button type="button" class="btn btn-outline" id="sheetPlayBtn" style="display:none;">
+        <svg class="icon" aria-hidden="true"><use href="#ic-speaker"/></svg>
+        <span class="play-btn-text">ฟังเสียง</span>
+      </button>
     </div>
   </div>
 </div>
 
-<!-- Place Info Sheet (both map pages) -->
+<!-- Place Info Sheet -->
 <div class="sheet-overlay" id="placeSheet">
   <div class="sheet-card place-sheet-card">
     <div class="place-sheet-header">
@@ -224,10 +386,14 @@
       <div class="place-info-list" id="placeInfoList"></div>
     </div>
     <div class="place-sheet-actions">
-      <button type="button" class="btn btn-primary place-nav-btn" id="placeNavBtn"
-              data-i18n="place.navigate">🧭 นำทาง</button>
-      <a class="btn btn-outline" id="placeMapsLink" href="#" target="_blank" rel="noopener"
-         data-i18n="place.gmaps">🗺️ Google Maps</a>
+      <button type="button" class="btn btn-primary place-nav-btn" id="placeNavBtn">
+        <svg class="icon" aria-hidden="true"><use href="#ic-navigate"/></svg>
+        <span data-i18n="place.navigate">นำทาง</span>
+      </button>
+      <a class="btn btn-outline" id="placeMapsLink" href="#" target="_blank" rel="noopener">
+        <svg class="icon" aria-hidden="true"><use href="#ic-map"/></svg>
+        <span data-i18n="place.gmaps">Google Maps</span>
+      </a>
     </div>
     <div class="gmaps-wrap" id="gmapsWrap">
       <iframe id="gmapsFrame" title="Google Maps" src="" frameborder="0" allowfullscreen loading="lazy"></iframe>
@@ -235,10 +401,12 @@
   </div>
 </div>
 
-<!-- Map Search Bar (map + voice map pages) -->
+<!-- Map Search Bar -->
 <div class="map-search-wrap hidden" id="mapSearchWrap">
   <div class="map-search-bar">
-    <span class="map-search-icon">🔍</span>
+    <span class="map-search-icon">
+      <svg class="icon" aria-hidden="true"><use href="#ic-search"/></svg>
+    </span>
     <input type="search" class="map-search-input" id="mapSearchInput"
            placeholder="ค้นหาสถานที่…" autocomplete="off" spellcheck="false">
     <button type="button" class="map-search-clear hidden" id="mapSearchClear" title="ล้าง">✕</button>
@@ -250,45 +418,63 @@
 <div class="surprise-overlay hidden" id="surpriseOverlay">
   <div class="surprise-card">
     <button type="button" class="surprise-close" id="surpriseClose">✕</button>
-    <div class="surprise-eyebrow">🎲 สถานที่แนะนำวันนี้</div>
+    <div class="surprise-eyebrow">
+      <svg class="icon" aria-hidden="true"><use href="#ic-shuffle"/></svg>
+      สถานที่แนะนำวันนี้
+    </div>
     <div class="surprise-name" id="surpriseName"></div>
     <div class="surprise-desc-text" id="surpriseDesc"></div>
     <div class="surprise-dist hidden" id="surpriseDist">
-      <span>📏</span><span id="surpriseDistText"></span>
+      <svg class="icon" aria-hidden="true"><use href="#ic-distance"/></svg>
+      <span id="surpriseDistText"></span>
     </div>
     <div class="surprise-btns">
-      <button type="button" class="btn btn-primary" id="surpriseGoBtn">🧭 ไปเลย!</button>
-      <button type="button" class="btn btn-outline" id="surpriseRerollBtn">🎲 สุ่มใหม่</button>
+      <button type="button" class="btn btn-primary" id="surpriseGoBtn">
+        <svg class="icon" aria-hidden="true"><use href="#ic-navigate"/></svg>
+        ไปเลย!
+      </button>
+      <button type="button" class="btn btn-outline" id="surpriseRerollBtn">
+        <svg class="icon" aria-hidden="true"><use href="#ic-shuffle"/></svg>
+        สุ่มใหม่
+      </button>
     </div>
   </div>
 </div>
 
-<!-- Floating buttons (map + voice map pages) -->
-<button type="button" class="map-fab-cancel-nav hidden" id="cancelNavBtn" title="ยกเลิกการนำทาง">⏹ ยกเลิก</button>
-<button type="button" class="map-fab map-fab-locate hidden" id="locateBtn"   title="ตำแหน่งของฉัน">📍</button>
-<button type="button" class="map-fab map-fab-layer  hidden" id="layerToggle" title="สลับแผนที่">🗺️</button>
+<!-- Floating buttons -->
+<button type="button" class="map-fab-cancel-nav hidden" id="cancelNavBtn" title="ยกเลิกการนำทาง">
+  <svg class="icon" aria-hidden="true"><use href="#ic-stop"/></svg>
+  ยกเลิก
+</button>
+<button type="button" class="map-fab map-fab-locate hidden" id="locateBtn" title="ตำแหน่งของฉัน">
+  <svg class="icon" aria-hidden="true"><use href="#ic-pin"/></svg>
+</button>
+<button type="button" class="map-fab map-fab-layer hidden" id="layerToggle" title="สลับแผนที่">
+  <svg class="icon" aria-hidden="true"><use href="#ic-layers"/></svg>
+</button>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <!-- ══ Bottom Navigation ═════════════════════════════════════ -->
 <nav class="bottom-nav" id="bottomNav">
-  <!-- Visible only on desktop sidebar -->
   <div class="sidebar-logo" aria-hidden="true">
-    <span class="sidebar-logo-icon">🗺️</span>
+    <span class="sidebar-logo-icon">
+      <svg class="icon" aria-hidden="true"><use href="#ic-map"/></svg>
+    </span>
     <span class="sidebar-logo-text">Voice Map</span>
   </div>
 
   <button class="nav-item" data-page="map">
-    <span class="nav-icon">🗺️</span>
+    <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#ic-map"/></svg></span>
     <span class="nav-label" data-i18n="nav.map">แผนที่</span>
   </button>
   <button class="nav-item" data-page="home">
-    <span class="nav-icon">🔊</span>
+    <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#ic-speaker"/></svg></span>
     <span class="nav-label" data-i18n="nav.voicemap">Voice Map</span>
   </button>
   <button class="nav-item" data-page="settings">
-    <span class="nav-icon">⚙️</span>
+    <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#ic-gear"/></svg></span>
     <span class="nav-label" data-i18n="nav.settings">ตั้งค่า</span>
   </button>
 </nav>
@@ -303,6 +489,7 @@
 <script src="js/places.js"></script>
 <script src="js/menu.js"></script>
 <script src="js/seed.js"></script>
+<script src="js/poi.js"></script>
 <script src="js/app.js"></script>
 
 </body>

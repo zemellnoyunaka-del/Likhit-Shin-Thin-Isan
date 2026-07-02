@@ -22,6 +22,34 @@ const App = (() => {
   let _searchAbort = null;
   const _searchCache = new Map();
 
+  /* ── Pin type config (เทียบเท่า customIcons ในโค้ดตัวอย่าง) ── */
+  const PIN_TYPE_CONFIG = {
+    temple: {
+      grad: '#c47d0e, #b45309', pulse: 'rgba(180,83,9,.28)', label: 'วัด',
+      paths: '<path d="M3 22h18"/><path d="M5 22V10L12 4l7 6v12"/><path d="M9 22v-7h6v7"/>',
+    },
+    chedi: {
+      grad: '#b45309, #7c2d12', pulse: 'rgba(146,64,14,.28)', label: 'พระธาตุ',
+      paths: '<line x1="12" y1="2" x2="12" y2="5"/><path d="M10 5h4"/><path d="M8 8h8"/><path d="M6 11h12"/><path d="M4 14h16v7H4z"/>',
+    },
+    shrine: {
+      grad: '#dc2626, #991b1b', pulse: 'rgba(153,27,27,.28)', label: 'ศาลสักดิ์สิทธิ์',
+      paths: '<line x1="12" y1="2" x2="12" y2="22"/><path d="M8 2h8v3H8z"/><path d="M8 19h8v3H8z"/><line x1="10" y1="9" x2="14" y2="9"/><line x1="10" y1="15" x2="14" y2="15"/>',
+    },
+    khmer: {
+      grad: '#92400e, #57190a', pulse: 'rgba(124,45,18,.28)', label: 'โบราณสถาน',
+      paths: '<path d="M3 21h18"/><line x1="5" y1="21" x2="5" y2="10"/><line x1="19" y1="21" x2="19" y2="10"/><path d="M5 10a7 7 0 0 1 14 0"/><path d="M10 21v-5h4v5"/>',
+    },
+    buddha: {
+      grad: '#d97706, #a16207', pulse: 'rgba(217,119,6,.28)', label: 'พระพุทธรูป',
+      paths: '<circle cx="12" cy="5" r="2.5"/><path d="M7 22c0-4 2.2-8 5-9 2.8 1 5 5 5 9"/><line x1="7" y1="22" x2="17" y2="22"/>',
+    },
+  };
+  const PIN_TYPE_DEFAULT = {
+    grad: '#f59e0b, #ef4444', pulse: 'rgba(245,158,11,.28)', label: 'สถานที่',
+    paths: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>',
+  };
+
   /* ── Boot ────────────────────────────────────────────────── */
   async function init() {
     I18n.apply();   // apply saved language before anything renders
@@ -59,7 +87,6 @@ const App = (() => {
     satLabelLayer.addTo(map);
 
     const layerBtn = document.getElementById('layerToggle');
-    layerBtn.textContent = '🗺️';
     layerBtn.classList.add('satellite');
 
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
@@ -67,6 +94,7 @@ const App = (() => {
 
     NavManager.init(map);
     MenuManager.init();
+    POI.init(map);
 
     loadPins();
     startTracking();
@@ -117,11 +145,16 @@ const App = (() => {
   function addMarker(pin) {
     if (pinMarkers.has(pin.id)) map.removeLayer(pinMarkers.get(pin.id));
 
+    // เลือก config ตาม pin.type — ถ้าไม่มีใช้ค่า default (เทียบเท่า customIcons[loc.type] || new L.Icon.Default())
+    const cfg = PIN_TYPE_CONFIG[pin.type] || PIN_TYPE_DEFAULT;
+
     const icon = L.divIcon({
       className: '',
       html: `<div class="voice-pin">
-               <div class="voice-pin-pulse"></div>
-               <div class="voice-pin-icon"><span>🔊</span></div>
+               <div class="voice-pin-pulse" style="background:${cfg.pulse}"></div>
+               <div class="voice-pin-icon" style="background:linear-gradient(135deg,${cfg.grad});box-shadow:0 4px 14px ${cfg.pulse}">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">${cfg.paths}</svg>
+               </div>
              </div>`,
       iconSize: [44, 55], iconAnchor: [22, 55]
     });
@@ -224,6 +257,23 @@ const App = (() => {
     setText('sheetTitle', pin.name);
     setText('sheetDesc',  pin.description || '');
 
+    // แสดง badge ประเภท (เทียบเท่า popup "ประเภท: ${loc.type}" ในโค้ดตัวอย่าง)
+    const typeBadgeEl = document.getElementById('sheetTypeBadge');
+    if (typeBadgeEl) {
+      const cfg = PIN_TYPE_CONFIG[pin.type] || PIN_TYPE_DEFAULT;
+      typeBadgeEl.textContent = cfg.label;
+      typeBadgeEl.style.background = `linear-gradient(135deg,${cfg.grad})`;
+      typeBadgeEl.classList.toggle('hidden', !pin.type);
+    }
+
+    const historyEl = document.getElementById('sheetHistory');
+    if (pin.history) {
+      document.getElementById('sheetHistoryText').textContent = pin.history;
+      historyEl.classList.remove('hidden');
+    } else {
+      historyEl.classList.add('hidden');
+    }
+
     const poemEl = document.getElementById('sheetPoem');
     if (pin.poem) {
       document.getElementById('sheetPoemText').textContent = pin.poem;
@@ -242,14 +292,14 @@ const App = (() => {
     // Reset play button to loading state while we check for audio
     const playBtn = document.getElementById('sheetPlayBtn');
     _resetPlayBtn(playBtn);
-    playBtn.textContent = '⏳';
+    _setPlayBtnText(playBtn, null, '…');
     playBtn.style.display = 'inline-flex';
     playBtn.disabled = true;
 
     VoiceMapDB.hasAudio(pin.id).then(has => {
       if (activePin?.id !== pin.id) return; // sheet was replaced before check finished
       if (has) {
-        playBtn.textContent = '🔊 ฟังเสียง';
+        _setPlayBtnText(playBtn, 'ic-speaker', I18n.t('sheet.play'));
         playBtn.disabled = false;
       } else {
         playBtn.style.display = 'none';
@@ -260,10 +310,17 @@ const App = (() => {
     map.panTo([pin.lat, pin.lng]);
   }
 
+  function _setPlayBtnText(btn, iconId, text) {
+    const iconEl = btn.querySelector('svg use');
+    const textEl = btn.querySelector('.play-btn-text');
+    if (iconEl && iconId) iconEl.setAttribute('href', '#' + iconId);
+    if (textEl) textEl.textContent = text;
+  }
+
   function _resetPlayBtn(btn) {
     AudioManager.stopPlayback();
     btn = btn || document.getElementById('sheetPlayBtn');
-    btn.textContent = '🔊 ฟังเสียง';
+    _setPlayBtnText(btn, 'ic-speaker', I18n.t('sheet.play'));
     btn.disabled = false;
     btn.dataset.playing = '';
   }
@@ -339,7 +396,6 @@ const App = (() => {
         streetLayer.bringToBack();
       }
       const btn = document.getElementById('layerToggle');
-      btn.textContent = isSatellite ? '🗺️' : '🛰️';
       btn.classList.toggle('satellite', isSatellite);
     });
 
@@ -371,13 +427,13 @@ const App = (() => {
         return;
       }
 
-      btn.textContent = '⏳ กำลังโหลด…';
+      _setPlayBtnText(btn, null, '…');
       btn.disabled = true;
 
       const blob = await VoiceMapDB.getAudio(activePin.id);
-      if (!blob) { btn.textContent = '🔊 ฟังเสียง'; btn.disabled = false; return; }
+      if (!blob) { _setPlayBtnText(btn, 'ic-speaker', I18n.t('sheet.play')); btn.disabled = false; return; }
 
-      btn.textContent = '⏸️ หยุดเล่น';
+      _setPlayBtnText(btn, 'ic-pause', I18n.t('sheet.playing'));
       btn.dataset.playing = '1';
       btn.disabled = false;
 
@@ -386,13 +442,13 @@ const App = (() => {
         if (audio) {
           audio.addEventListener('ended', () => {
             if (btn.dataset.playing === '1') {
-              btn.textContent = '🔊 ฟังเสียง';
+              _setPlayBtnText(btn, 'ic-speaker', I18n.t('sheet.play'));
               btn.dataset.playing = '';
             }
           });
         }
       } catch {
-        btn.textContent = '🔊 ฟังเสียง';
+        _setPlayBtnText(btn, 'ic-speaker', I18n.t('sheet.play'));
         btn.dataset.playing = '';
         btn.disabled = false;
       }
@@ -520,7 +576,7 @@ const App = (() => {
         when = new Date(entry.visitedAt).toLocaleDateString(loc, { day:'numeric', month:'short' });
       }
       return `<div class="home-recent-item">
-        <span class="home-recent-icon">📍</span>
+        <span class="home-recent-icon"><svg class="icon" aria-hidden="true"><use href="#ic-pin"/></svg></span>
         <div class="home-recent-body">
           <div class="home-recent-name">${_esc(entry.pinName)}</div>
           <div class="home-recent-time">${when}</div>
@@ -581,12 +637,13 @@ const App = (() => {
     }
 
     /* Info rows */
+    const _svg = id => `<svg class="icon" aria-hidden="true"><use href="#${id}"/></svg>`;
     const rows = [];
     const addr = PlaceInfo.formatAddress(tags);
-    if (addr) rows.push({ icon: '📍', text: addr });
-    if (tags.phone) rows.push({ icon: '📞', text: tags.phone, href: `tel:${tags.phone.replace(/\s/g,'')}` });
-    if (tags['opening_hours']) rows.push({ icon: '🕐', text: tags['opening_hours'] });
-    if (tags.website) rows.push({ icon: '🌐', text: 'เว็บไซต์', href: tags.website });
+    if (addr) rows.push({ icon: _svg('ic-pin'), text: addr });
+    if (tags.phone) rows.push({ icon: _svg('ic-phone'), text: tags.phone, href: `tel:${tags.phone.replace(/\s/g,'')}` });
+    if (tags['opening_hours']) rows.push({ icon: _svg('ic-clock'), text: tags['opening_hours'] });
+    if (tags.website) rows.push({ icon: _svg('ic-globe'), text: 'เว็บไซต์', href: tags.website });
 
     document.getElementById('placeInfoList').innerHTML = rows.map(r =>
       `<div class="place-info-row">
@@ -770,7 +827,7 @@ const App = (() => {
       _renderResults(merged);
     } catch (err) {
       if (err.name === 'AbortError') return;
-      results.innerHTML = '<div class="map-search-msg">⚠️ เชื่อมต่อไม่ได้ — ลองใหม่อีกครั้ง</div>';
+      results.innerHTML = '<div class="map-search-msg">เชื่อมต่อไม่ได้ — ลองใหม่อีกครั้ง</div>';
     }
   }
 
@@ -901,27 +958,8 @@ const App = (() => {
     });
   }
 
-  function _searchIcon(type, cls) {
-    const amenity = {
-      restaurant:'🍽️', cafe:'☕', food_court:'🍽️',
-      school:'🏫', university:'🎓', kindergarten:'🏫',
-      hospital:'🏥', clinic:'🏥', pharmacy:'💊',
-      bank:'🏦', atm:'🏧', fuel:'⛽',
-      place_of_worship:'🛕', temple:'🛕',
-      hotel:'🏨', guest_house:'🏨',
-      parking:'🅿️', police:'👮', fire_station:'🚒',
-      supermarket:'🛒', marketplace:'🏪', convenience:'🏪',
-      post_office:'📮', library:'📚', cinema:'🎬',
-      bus_station:'🚌', ferry_terminal:'⛴️',
-    };
-    if (cls === 'amenity' && amenity[type]) return amenity[type];
-    const clsMap = {
-      highway:'🛣️', natural:'🌿', tourism:'🏛️',
-      shop:'🛍️', leisure:'🌳', historic:'🏯',
-      waterway:'💧', railway:'🚉', aeroway:'✈️',
-      boundary:'📍', place:'🏙️',
-    };
-    return clsMap[cls] || '📍';
+  function _searchIcon() {
+    return `<svg class="icon" aria-hidden="true"><use href="#ic-pin"/></svg>`;
   }
 
   /* ── Utilities ───────────────────────────────────────────── */

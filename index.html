@@ -353,10 +353,30 @@
         <div class="sheet-poem-text" id="sheetPoemText"></div>
       </div>
     </div>
-    <div class="sheet-meta">
-      <svg class="icon" aria-hidden="true"><use href="#ic-distance"/></svg>
-      <span data-i18n="sheet.dist">ระยะห่าง:</span>
-      <strong id="sheetDist">–</strong>
+    <div class="sheet-travel-bar" id="sheetTravelBar">
+      <div class="travel-stat">
+        <svg viewBox="2 3 20 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true">
+          <circle cx="12" cy="5" r="1.5"/><path d="M8 21l2.5-7L8 11l4-3 4 3-2.5 3.5L16 21"/><line x1="12" y1="8" x2="12" y2="11"/>
+        </svg>
+        <span class="travel-val" id="walkTime">–</span>
+        <span class="travel-lbl">เดิน</span>
+      </div>
+      <div class="travel-divider"></div>
+      <div class="travel-stat">
+        <svg viewBox="1 3 22 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true">
+          <rect x="2" y="5" width="14" height="10" rx="2"/><path d="M16 9h4l2 3v3h-6V9z"/><circle cx="6" cy="17" r="2"/><circle cx="18" cy="17" r="2"/>
+        </svg>
+        <span class="travel-val" id="driveTime">–</span>
+        <span class="travel-lbl">ขับรถ</span>
+      </div>
+      <div class="travel-divider"></div>
+      <div class="travel-stat">
+        <svg viewBox="3 3 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/>
+        </svg>
+        <span class="travel-val" id="sheetDist">–</span>
+        <span class="travel-lbl">ห่าง</span>
+      </div>
     </div>
     <div class="sheet-actions">
       <button type="button" class="btn btn-primary" id="sheetNavBtn" style="flex:1;">

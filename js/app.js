@@ -256,6 +256,71 @@ const App = (() => {
     }
   }
 
+  /* ── Travel time (OSRM routing) ─────────────────────────── */
+  function _fmtMinutes(seconds) {
+    if (seconds == null) return '–';
+    const mins = Math.round(seconds / 60);
+    if (mins < 1)  return '< 1 นาที';
+    if (mins < 60) return `${mins} นาที`;
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return m > 0 ? `${h} ชม. ${m} นาที` : `${h} ชม.`;
+  }
+
+  function _estimateTime(distM, speedKph, detour = 1.35) {
+    /* straight-line distance × detour factor ÷ speed */
+    return (distM * detour) / (speedKph * 1000 / 3600);
+  }
+
+  async function _fetchDriveTime(fromLat, fromLng, toLat, toLng) {
+    /* ใช้ OSRM เฉพาะ driving — foot profile บน public server ไม่น่าเชื่อถือ */
+    const coord = `${fromLng},${fromLat};${toLng},${toLat}`;
+    const ctrl  = new AbortController();
+    const tid   = setTimeout(() => ctrl.abort(), 6000);
+    try {
+      const res = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${coord}?overview=false&steps=false`,
+        { signal: ctrl.signal }
+      );
+      clearTimeout(tid);
+      if (!res.ok) return null;
+      const j = await res.json().catch(() => null);
+      return j?.routes?.[0]?.duration ?? null;
+    } catch {
+      clearTimeout(tid);
+      return null;
+    }
+  }
+
+  function _updateTravelBar(pin, haversineM) {
+    const walkEl  = document.getElementById('walkTime');
+    const driveEl = document.getElementById('driveTime');
+    if (!walkEl || !driveEl) return;
+
+    /* เวลาเดิน: คำนวณจากระยะทาง (OSRM foot ไม่น่าเชื่อถือบน public server) */
+    const walkSec = _estimateTime(haversineM, 5, 1.25);
+    walkEl.textContent = _fmtMinutes(walkSec);
+    walkEl.classList.remove('loading');
+    walkEl.title = 'ค่าประมาณ';
+
+    /* เวลาขับรถ: แสดง … ก่อน แล้ว fetch OSRM */
+    driveEl.textContent = '…';
+    driveEl.classList.add('loading');
+
+    const myPin = pin;
+    _fetchDriveTime(userLat, userLng, pin.lat, pin.lng).then(driveSec => {
+      if (activePin?.id !== myPin.id) return;
+
+      /* sanity check: ขับรถต้องเร็วกว่าเดิน */
+      const usedDrive = (driveSec !== null && driveSec < walkSec)
+        ? driveSec
+        : _estimateTime(haversineM, 30, 1.3);
+
+      driveEl.textContent = _fmtMinutes(usedDrive);
+      driveEl.classList.remove('loading');
+      if (!driveSec || driveSec >= walkSec) driveEl.title = 'ค่าประมาณ';
+    });
+  }
+
   /* ── Pin info bottom-sheet ───────────────────────────────── */
   function showPinSheet(pin) {
     activePin = pin;
@@ -288,26 +353,44 @@ const App = (() => {
     }
 
     const distEl = document.getElementById('sheetDist');
+    const walkEl  = document.getElementById('walkTime');
+    const driveEl = document.getElementById('driveTime');
+
     if (userLat !== null) {
-      distEl.textContent = NavManager.fmtDist(NavManager.haversine(userLat, userLng, pin.lat, pin.lng));
+      const haversineM = NavManager.haversine(userLat, userLng, pin.lat, pin.lng);
+      distEl.textContent = NavManager.fmtDist(haversineM);
+
+      /* รีเซ็ตแล้วโหลดเวลาเดินทาง async */
+      if (walkEl)  { walkEl.textContent  = '–'; walkEl.classList.remove('loading'); }
+      if (driveEl) { driveEl.textContent = '–'; driveEl.classList.remove('loading'); }
+      _updateTravelBar(pin, haversineM);
     } else {
       distEl.textContent = '–';
+      if (walkEl)  walkEl.textContent  = '–';
+      if (driveEl) driveEl.textContent = '–';
     }
 
-    // Reset play button to loading state while we check for audio
+    // Reset play button
     const playBtn = document.getElementById('sheetPlayBtn');
     _resetPlayBtn(playBtn);
-    _setPlayBtnText(playBtn, null, '…');
     playBtn.style.display = 'inline-flex';
     playBtn.disabled = true;
+    playBtn.classList.remove('no-audio');
+    _setPlayBtnText(playBtn, null, '…');
 
     VoiceMapDB.hasAudio(pin.id).then(has => {
-      if (activePin?.id !== pin.id) return; // sheet was replaced before check finished
+      if (activePin?.id !== pin.id) return;
       if (has) {
         _setPlayBtnText(playBtn, 'ic-speaker', I18n.t('sheet.play'));
         playBtn.disabled = false;
+        playBtn.classList.remove('no-audio');
+        playBtn.title = '';
       } else {
-        playBtn.style.display = 'none';
+        /* แสดงปุ่มแต่ disabled — ไม่ซ่อน เพื่อให้ผู้ใช้รู้ว่าฟีเจอร์นี้มีอยู่ */
+        _setPlayBtnText(playBtn, 'ic-speaker', 'ไม่มีเสียง');
+        playBtn.disabled = true;
+        playBtn.classList.add('no-audio');
+        playBtn.title = 'ยังไม่มีไฟล์เสียงสำหรับสถานที่นี้';
       }
     });
 
@@ -344,7 +427,9 @@ const App = (() => {
     closeSheet();
 
     // Show nav panel + cancel button
-    document.getElementById('bottomPanel').classList.remove('hidden');
+    const bp = document.getElementById('bottomPanel');
+    bp.classList.remove('hidden');
+    requestAnimationFrame(() => bp.classList.add('expanded'));
     document.getElementById('cancelNavBtn').classList.remove('hidden');
 
     setText('navDest', pin.name);
@@ -359,7 +444,9 @@ const App = (() => {
   function stopNav() {
     NavManager.stopNavigation();
     document.getElementById('navInstruction').classList.add('hidden');
-    document.getElementById('bottomPanel').classList.add('hidden');
+    const bp = document.getElementById('bottomPanel');
+    bp.classList.remove('expanded');
+    bp.classList.add('hidden');
     document.getElementById('cancelNavBtn').classList.add('hidden');
   }
 

@@ -326,20 +326,28 @@ body {
   position: fixed; inset: 0; z-index: 3000;
   background: rgba(0,0,0,.42);
   opacity: 0; pointer-events: none; transition: opacity .28s;
-  display: flex; align-items: flex-end;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
 }
 .sheet-overlay.show { opacity: 1; pointer-events: auto; }
 
 .sheet-card {
   background: #ffffff;
   border-top: 3px solid var(--primary);
-  border-radius: 12px 12px 0 0;
-  padding: 22px 22px 32px; width: 100%;
-  transform: translateY(100%);
-  transition: transform .3s cubic-bezier(.25,.8,.25,1);
-  box-shadow: 0 -6px 24px rgba(0,0,0,.1);
+  border-radius: 14px;
+  padding: 22px 22px 28px; width: 100%;
+  transform: translateY(40px) scale(.97);
+  transition: transform .3s cubic-bezier(.25,.8,.25,1), opacity .3s;
+  opacity: 0;
+  box-shadow: 0 8px 40px rgba(0,0,0,.22);
+  max-height: 82vh;
+  display: flex; flex-direction: column;
 }
-.sheet-overlay.show .sheet-card { transform: translateY(0); }
+.sheet-scroll {
+  overflow-y: auto; flex: 1;
+  margin: 0 -4px; padding: 0 4px;
+}
+.sheet-overlay.show .sheet-card { transform: translateY(0) scale(1); opacity: 1; }
 
 .sheet-title {
   font-size: 1.1rem; font-weight: 700; color: var(--text-primary);
@@ -394,9 +402,30 @@ body {
   letter-spacing: .1em; text-transform: uppercase; margin-bottom: 10px;
 }
 .sheet-poem-text {
-  font-size: .875rem; line-height: 2.1; color: var(--text-secondary);
-  white-space: pre-line;
+  font-size: .875rem; color: var(--text-secondary);
   font-family: 'CS Prajad', 'Sarabun', sans-serif;
+}
+
+/* ── ผังกลอนนิราศ ──────────────────────────────────────── */
+.poem-bat { margin-bottom: 10px; }
+.poem-bat:last-child { margin-bottom: 0; }
+
+.poem-baat {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+}
+.poem-wan { line-height: 2.15; }
+
+/* ── Compass ─────────────────────────────────────────────── */
+.map-compass {
+  position: fixed;
+  top: calc(54px + 12px); left: 14px;
+  z-index: 1001;
+  line-height: 0;
+  border-radius: 50%;
+  box-shadow: 0 2px 10px rgba(0,0,0,.22);
+  pointer-events: none;
 }
 
 /* ── Floating Map Buttons (FABs) ─────────────────────────── */
@@ -765,7 +794,7 @@ body {
     border-radius: 14px; border: 1px solid var(--border);
     box-shadow: var(--shadow-lg);
   }
-  .sheet-card   { max-width: 520px; margin: 0 auto; border-radius: 14px; }
+  .sheet-card   { max-width: 520px; }
   .nav-icon     { font-size: 22px; }
   .nav-label    { font-size: 11px; }
 }
@@ -773,7 +802,7 @@ body {
 @media (min-width: 1024px) {
   .nav-item     { gap: 5px; }
   .nav-label    { font-size: .78rem; }
-  .sheet-card   { max-width: 520px; margin: 0 auto; border-radius: 14px; }
+  .sheet-card   { max-width: 520px; }
   .home-scroll  { max-width: 640px; margin: 0 auto; padding: 0 32px 48px; }
   .home-hero    { padding: 52px 0 28px; }
   .home-stats   { gap: 14px; }
@@ -1214,10 +1243,10 @@ body {
 
 /* ── POI Dot Markers ─────────────────────────────────────── */
 .poi-dot {
-  width: 26px; height: 26px; border-radius: 50%;
+  width: 22px; height: 22px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  border: 2px solid rgba(255,255,255,.85);
-  box-shadow: 0 2px 8px rgba(0,0,0,.32);
+  border: 1.5px solid rgba(255,255,255,.85);
+  box-shadow: 0 1px 5px rgba(0,0,0,.3);
   cursor: pointer;
   transition: transform .15s, box-shadow .15s;
 }
@@ -1241,3 +1270,90 @@ body {
 }
 .poi-tip::before { display: none !important; }
 .leaflet-tooltip.poi-tip { opacity: 1 !important; }
+
+/* ── POI Info Sheet ─────────────────────────────────────── */
+.poi-sh-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  flex-shrink: 0;
+}
+.poi-sh-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.poi-sh-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+.poi-sh-cat {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  display: block;
+  margin-bottom: 2px;
+}
+.poi-sh-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary, #1a1a1a);
+  line-height: 1.3;
+  word-break: break-word;
+}
+.poi-sh-img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  background: var(--bg-secondary, #f3f4f6);
+}
+.poi-sh-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.poi-sh-details {
+  padding: 12px 16px 4px;
+}
+.poi-sh-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 14px;
+  color: var(--text-primary, #1a1a1a);
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  line-height: 1.5;
+}
+.poi-sh-row:last-child { border-bottom: none; }
+.poi-sh-row a { color: var(--accent, #3b82f6); word-break: break-all; }
+.poi-sh-row-icon { font-size: 15px; flex-shrink: 0; width: 22px; text-align: center; }
+.poi-sh-desc {
+  font-size: 13.5px;
+  color: var(--text-secondary, #4b5563);
+  line-height: 1.65;
+  padding: 10px 16px 4px;
+  margin: 0;
+  border-top: 1px solid var(--border-color, #f0f0f0);
+}
+.poi-sh-loading {
+  color: var(--text-muted, #9ca3af);
+  font-size: 13px;
+  padding: 12px 0;
+  text-align: center;
+}
+.poi-sh-noinfo {
+  color: var(--text-muted, #9ca3af);
+  font-size: 14px;
+  padding: 8px 0;
+  margin: 0;
+}

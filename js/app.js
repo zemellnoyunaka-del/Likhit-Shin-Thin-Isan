@@ -92,6 +92,7 @@ const App = (() => {
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
     L.control.attribution({ position: 'bottomleft', prefix: '© OSM' }).addTo(map);
 
+
     NavManager.init(map);
     MenuManager.init();
     POI.init(map);
@@ -184,12 +185,16 @@ const App = (() => {
     );
   }
 
+  let _proxTimer = null;
+
   function onPosition(pos) {
     const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
     userLat = lat; userLng = lng; userAcc = acc;
 
     updateUserMarker(lat, lng, acc);
-    checkProximity(lat, lng);
+    /* Throttle proximity checks to max once per 1.5 s — GPS can fire many times/sec */
+    clearTimeout(_proxTimer);
+    _proxTimer = setTimeout(() => checkProximity(lat, lng), 1500);
     updateNavPanel(lat, lng);
     NavManager.updateRoute(lat, lng);
     setText('statusText', `±${Math.round(acc)} ม.`);
@@ -276,7 +281,7 @@ const App = (() => {
 
     const poemEl = document.getElementById('sheetPoem');
     if (pin.poem) {
-      document.getElementById('sheetPoemText').textContent = pin.poem;
+      document.getElementById('sheetPoemText').innerHTML = renderPoem(pin.poem);
       poemEl.classList.remove('hidden');
     } else {
       poemEl.classList.add('hidden');
@@ -307,7 +312,8 @@ const App = (() => {
     });
 
     document.getElementById('pinSheet').classList.add('show');
-    map.panTo([pin.lat, pin.lng]);
+    /* noMoveEnd: false — แต่ pan ระยะสั้นจะไม่ trigger POI reload เพราะ _fetchedBox ครอบ */
+    map.panTo([pin.lat, pin.lng], { animate: true, duration: 0.4 });
   }
 
   function _setPlayBtnText(btn, iconId, text) {
@@ -504,6 +510,7 @@ const App = (() => {
     document.getElementById('topBar').classList.toggle('hidden', isHome || isSettings);
     document.getElementById('locateBtn').classList.toggle('hidden', isHome || isSettings);
     document.getElementById('layerToggle').classList.toggle('hidden', isHome || isSettings);
+    document.getElementById('mapCompass').classList.toggle('hidden', isHome || isSettings);
     document.getElementById('mapSearchWrap').classList.toggle('hidden', isHome || isSettings);
 
     // Row1 (logo + GPS) — all map pages
@@ -523,11 +530,6 @@ const App = (() => {
       }
     });
 
-    // Close panels when leaving map pages
-    if (!isMapPage) {
-    }
-
-    // Close panels when leaving map pages
     if (!isMapPage) {
       closeSheet();
       MenuManager.close();
@@ -538,10 +540,8 @@ const App = (() => {
     if (isHome || isSettings) closePlaceSheet();
 
     if (isMapPage) {
-      setTimeout(() => {
-        map.invalidateSize();
-        if (userLat !== null) map.setView([userLat, userLng], map.getZoom());
-      }, 50);
+      /* 300ms ให้ CSS transition เสร็จก่อน invalidate — 50ms สั้นเกินไป */
+      setTimeout(() => map.invalidateSize(), 300);
     }
 
     // Nav active state
@@ -586,18 +586,30 @@ const App = (() => {
   }
 
   /* ── Place Info Sheet (OSM POI) ─────────────────────────── */
+  let _mapClickGen = 0;
+
   async function onMapClick(e) {
+    /* ป้องกัน event bubble จาก marker click ขึ้นมา trigger map click */
+    const native = e.originalEvent;
+    if (native?.target?.closest?.('.poi-dot, .voice-pin, .user-dot-wrap, .leaflet-marker-icon')) return;
+
+    const myGen = ++_mapClickGen;
     closeSheet();
     _placeSheetLoading();
 
     const { lat, lng } = e.latlng;
-    const elements = await PlaceInfo.fetchNearby(lat, lng, 30);
-    const el = PlaceInfo.closest(elements, lat, lng);
-
-    if (!el) {
-      closePlaceSheet();
+    let elements;
+    try {
+      elements = await PlaceInfo.fetchNearby(lat, lng, 30);
+    } catch {
+      if (myGen === _mapClickGen) closePlaceSheet();
       return;
     }
+
+    if (myGen !== _mapClickGen) return;   // newer click happened — discard stale result
+
+    const el = PlaceInfo.closest(elements, lat, lng);
+    if (!el) { closePlaceSheet(); return; }
     _populatePlaceSheet(el);
   }
 
@@ -1022,6 +1034,33 @@ const App = (() => {
     return String(s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* แปลงข้อความกลอนนิราศเป็น HTML ตามแบบแผนฉันทลักษณ์
+     แต่ละบรรทัด = 1 บาท (สดับ+รับ หรือ รอง+ส่ง) คั่นด้วยช่องว่าง 3+ ช่อง
+     จับคู่ทุก 2 บรรทัด = 1 บท */
+  function renderPoem(text) {
+    if (!text) return '';
+    const lines = text.trim().split('\n').filter(l => l.trim());
+    const parsed = lines.map(l =>
+      l.trim().split(/\s{3,}|\t/).map(s => s.trim()).filter(Boolean)
+    );
+
+    const bats = [];
+    for (let i = 0; i < parsed.length; i += 2) {
+      bats.push([parsed[i] || [], parsed[i + 1] || []]);
+    }
+
+    const row = (wak) => {
+      if (!wak.length) return '';
+      if (wak.length === 1)
+        return `<div class="poem-baat"><span></span><span class="poem-wan">${_esc(wak[0])}</span></div>`;
+      return `<div class="poem-baat"><span class="poem-wan">${_esc(wak[0])}</span><span class="poem-wan">${_esc(wak[1])}</span></div>`;
+    };
+
+    return bats.map(([b1, b2]) =>
+      `<div class="poem-bat">${row(b1)}${row(b2)}</div>`
+    ).join('');
   }
   function setText(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
   function setEl(id, display) { const el = document.getElementById(id); if (el) el.style.display = display; }

@@ -5,7 +5,7 @@
 
 const POI = (() => {
 
-  const ZOOM_SHOW = 16;   // ระดับซูมที่เริ่มแสดง POI (ระดับเห็นรายละเอียดถนน)
+  const ZOOM_SHOW = 17;   // ระดับซูมที่เริ่มแสดง POI (ระดับเห็นรายละเอียดอาคาร เหมือน Google Maps)
 
   /* ── Category config (สี + ไอคอน + ป้ายชื่อ) ────────────── */
   const CATS = {
@@ -162,7 +162,7 @@ const POI = (() => {
       if (_map.getZoom() < ZOOM_SHOW && _active) {
         _layer.remove();
         _active = false;
-        _gen++;                     // invalidate any in-flight fetch
+        _gen++;
         clearTimeout(_timer);
       }
     });
@@ -174,23 +174,19 @@ const POI = (() => {
   /* ── Internal ────────────────────────────────────────────── */
   function _schedule() {
     clearTimeout(_timer);
-    _timer = setTimeout(_check, 450);
+    _timer = setTimeout(_check, 150);
   }
 
   function _check() {
     const zoom = _map.getZoom();
     if (zoom < ZOOM_SHOW) {
-      if (_active) {
-        _layer.remove();
-        _active = false;
-        _clearMarkers();
-      }
+      if (_active) { _layer.remove(); _active = false; }
+      _clearMarkers();
       return;
     }
 
     if (!_active) { _layer.addTo(_map); _active = true; }
 
-    /* Skip re-fetch if current viewport is fully inside the already-loaded padded box */
     const view = _map.getBounds();
     if (_fetchedBox && _fetchedBox.contains(view)) return;
 
@@ -230,7 +226,7 @@ const POI = (() => {
       nwr["tourism"~"^(hotel|guest_house|hostel|motel|museum)$"](${bbox});
       nwr["shop"~"^(mall|supermarket|department_store|market|convenience|hairdresser|beauty|laundry|massage)$"](${bbox});
       nwr["leisure"~"^(park|garden|playground|fitness_centre|sports_centre|swimming_pool|stadium)$"](${bbox});
-    );out center 700;`;
+    );out center 300;`;
 
     try {
       const res  = await fetch(
@@ -298,7 +294,10 @@ const POI = (() => {
         zIndexOffset: -200,
       })
       .bindTooltip(_esc(name), { direction: 'top', offset: [0, -15], className: 'poi-tip' })
-      .on('click', () => _showInfo(node, cat, cfg, name));
+      .on('click', e => {
+        L.DomEvent.stopPropagation(e);
+        App.showPlaceFor(node);
+      });
 
       _layer.addLayer(m);
       _markers.set(key, m);

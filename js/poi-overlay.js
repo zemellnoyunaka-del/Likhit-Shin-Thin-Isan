@@ -31,6 +31,8 @@ const PoiOverlay = (() => {
       osm: ['"amenity"="pharmacy"'] },
   ];
 
+  const ZOOM_MIN = 15;   // ต้องซูมถึงระดับนี้ถึงจะเห็นหมุด (เหมือน Google Maps)
+
   let _map     = null;
   const active  = new Map();   // catId → Leaflet marker[]
   const loading = new Set();   // catIds currently fetching
@@ -39,15 +41,26 @@ const PoiOverlay = (() => {
   function init(mapInstance) {
     _map = mapInstance;
     buildGrid();
-    document.addEventListener('langchange', () => buildGrid());
+
+    _map.on('zoom', () => {
+      const z = _map.getZoom();
+      active.forEach((markers, catId) => {
+        markers.forEach(m => {
+          if (z < ZOOM_MIN) {
+            if (_map.hasLayer(m)) _map.removeLayer(m);
+          } else {
+            if (!_map.hasLayer(m)) m.addTo(_map);
+          }
+        });
+      });
+      _updateZoomHint();
+    });
   }
 
   /* ── Build category grid ─────────────────────────────────── */
   function buildGrid() {
     const grid = document.getElementById('poiGrid');
     if (!grid) return;
-    const lang = I18n.getLang();
-
     grid.innerHTML = CATEGORIES.map(cat => {
       const isOn = active.has(cat.id);
       const cnt  = isOn ? active.get(cat.id).length : '';
@@ -79,6 +92,7 @@ const PoiOverlay = (() => {
     (active.get(catId) || []).forEach(m => _map.removeLayer(m));
     active.delete(catId);
     _updateBtn(catId, false, null);
+    _updateZoomHint();
   }
 
   /* ── Fetch from Overpass ─────────────────────────────────── */
@@ -106,6 +120,7 @@ const PoiOverlay = (() => {
       const markers = _buildMarkers(data.elements || [], cat);
       active.set(catId, markers);
       _updateBtn(catId, true, markers.length);
+      _updateZoomHint();
     } catch (err) {
       console.warn('[POI]', catId, err.message);
       _updateBtn(catId, false, '!');
@@ -122,7 +137,7 @@ const PoiOverlay = (() => {
       const lng  = el.lon  ?? el.center?.lon;
       if (lat == null) return null;
 
-      const name = el.tags?.['name:th'] || el.tags?.name || cat.label[I18n.getLang()] || cat.label.th;
+      const name = el.tags?.['name:th'] || el.tags?.name || cat.label.th;
 
       const icon = L.divIcon({
         className: '',
@@ -130,9 +145,10 @@ const PoiOverlay = (() => {
         iconSize: [36, 36], iconAnchor: [18, 36]
       });
 
-      return L.marker([lat, lng], { icon })
-              .bindTooltip(name, { direction: 'top', offset: [0, -8] })
-              .addTo(_map);
+      const m = L.marker([lat, lng], { icon })
+              .bindTooltip(name, { direction: 'top', offset: [0, -8] });
+      if (_map.getZoom() >= ZOOM_MIN) m.addTo(_map);
+      return m;
     }).filter(Boolean);
   }
 
@@ -143,6 +159,15 @@ const PoiOverlay = (() => {
     btn.classList.toggle('active', isActive);
     const countEl = btn.querySelector('.poi-cat-count');
     if (countEl) countEl.textContent = count != null ? count : '';
+  }
+
+  /* ── Zoom hint ───────────────────────────────────────────── */
+  function _updateZoomHint() {
+    const hint = document.getElementById('poiZoomHint');
+    if (!hint) return;
+    const hasActive = active.size > 0;
+    const tooFar = _map.getZoom() < ZOOM_MIN;
+    hint.classList.toggle('hidden', !hasActive || !tooFar);
   }
 
   /* ── Clear all markers ───────────────────────────────────── */

@@ -102,12 +102,6 @@ const App = (() => {
     bindUI();
     map.on('click', onMapClick);
 
-    /* Re-apply translations whenever language changes */
-    document.addEventListener('langchange', () => {
-      I18n.apply();
-      _refreshDynamicText();
-    });
-
     switchPage('map');
 
     // NFC deep link: ?pin=pin_seed_XXX
@@ -378,25 +372,76 @@ const App = (() => {
     playBtn.classList.remove('no-audio');
     _setPlayBtnText(playBtn, null, '…');
 
-    VoiceMapDB.hasAudio(pin.id).then(has => {
+    VoiceMapDB.getAudio(pin.id).then(async blob => {
       if (activePin?.id !== pin.id) return;
-      if (has) {
-        _setPlayBtnText(playBtn, 'ic-speaker', I18n.t('sheet.play'));
-        playBtn.disabled = false;
-        playBtn.classList.remove('no-audio');
-        playBtn.title = '';
-      } else {
-        /* แสดงปุ่มแต่ disabled — ไม่ซ่อน เพื่อให้ผู้ใช้รู้ว่าฟีเจอร์นี้มีอยู่ */
+      if (!blob) {
         _setPlayBtnText(playBtn, 'ic-speaker', 'ไม่มีเสียง');
         playBtn.disabled = true;
         playBtn.classList.add('no-audio');
         playBtn.title = 'ยังไม่มีไฟล์เสียงสำหรับสถานที่นี้';
+        return;
+      }
+
+      playBtn.classList.remove('no-audio');
+      playBtn.title = '';
+
+      /* เล่นเสียงอัตโนมัติ */
+      _setPlayBtnText(playBtn, 'ic-pause', I18n.t('sheet.playing'));
+      playBtn.dataset.playing = '1';
+      playBtn.disabled = false;
+
+      try {
+        const audio = await AudioManager.playBlob(blob);
+        if (audio) {
+          audio.addEventListener('ended', () => {
+            if (activePin?.id === pin.id && playBtn.dataset.playing === '1') {
+              _setPlayBtnText(playBtn, 'ic-speaker', I18n.t('sheet.play'));
+              playBtn.dataset.playing = '';
+            }
+          });
+        }
+      } catch {
+        /* Autoplay blocked — รีเซ็ตปุ่มให้กดเองได้ */
+        _setPlayBtnText(playBtn, 'ic-speaker', I18n.t('sheet.play'));
+        playBtn.dataset.playing = '';
+        playBtn.disabled = false;
       }
     });
 
     document.getElementById('pinSheet').classList.add('show');
-    /* noMoveEnd: false — แต่ pan ระยะสั้นจะไม่ trigger POI reload เพราะ _fetchedBox ครอบ */
     map.panTo([pin.lat, pin.lng], { animate: true, duration: 0.4 });
+
+    /* โหลดรูป Wikipedia เป็น background จางๆ */
+    const bgEl = document.getElementById('sheetBg');
+    bgEl.classList.remove('loaded');
+    bgEl.style.backgroundImage = '';
+    _fetchPinBgImage(pin.name).then(url => {
+      if (activePin?.id !== pin.id || !url) return;
+      bgEl.style.backgroundImage = `url(${url})`;
+      bgEl.classList.add('loaded');
+    });
+  }
+
+  async function _fetchPinBgImage(name) {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 6000);
+    try {
+      for (const lang of ['th', 'en']) {
+        if (ctrl.signal.aborted) break;
+        try {
+          const res = await fetch(
+            `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`,
+            { signal: ctrl.signal }
+          );
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (data.type === 'disambiguation') continue;
+          const url = data.originalimage?.source || data.thumbnail?.source || null;
+          if (url) { clearTimeout(tid); return url; }
+        } catch (e) { if (e.name === 'AbortError') break; }
+      }
+    } finally { clearTimeout(tid); }
+    return null;
   }
 
   function _setPlayBtnText(btn, iconId, text) {
@@ -573,11 +618,6 @@ const App = (() => {
     document.getElementById('homeGoMap').addEventListener('click',   () => switchPage('map'));
     document.getElementById('homeGoVoice').addEventListener('click', () => switchPage('voicemap'));
 
-    // Language buttons in settings
-    document.querySelectorAll('.lang-btn').forEach(btn => {
-      btn.addEventListener('click', () => I18n.setLang(btn.dataset.lang));
-    });
-
     bindSearch();
     initSurprise();
   }
@@ -645,7 +685,8 @@ const App = (() => {
   function updateHomeStats() {
     document.getElementById('homePinCount').textContent  = pins.length;
     const history = VisitHistory.getAll();
-    document.getElementById('homeVisitCount').textContent = history.length;
+    const uniqueVisited = new Set(history.map(e => e.pinId)).size;
+    document.getElementById('homeVisitCount').textContent = uniqueVisited;
 
     const list = document.getElementById('homeRecentList');
     if (!history.length) {
@@ -801,18 +842,15 @@ const App = (() => {
   }
 
 
-  /* ── Map Search (Nominatim) ──────────────────────────────── */
+  /* ── Map Search ─────────────────────────────────────────── */
   function bindSearch() {
-    const wrap    = document.getElementById('mapSearchWrap');
-    const input   = document.getElementById('mapSearchInput');
+    const wrap     = document.getElementById('mapSearchWrap');
+    const input    = document.getElementById('mapSearchInput');
     const clearBtn = document.getElementById('mapSearchClear');
-    const results = document.getElementById('mapSearchResults');
-    let   _focusIdx = -1;
+    const results  = document.getElementById('mapSearchResults');
+    let _focusIdx  = -1;
 
-    function _hideResults() {
-      results.classList.add('hidden');
-      _focusIdx = -1;
-    }
+    function _hideResults() { results.classList.add('hidden'); _focusIdx = -1; }
 
     function _setFocus(idx) {
       const items = [...results.querySelectorAll('.map-search-item')];
@@ -828,16 +866,15 @@ const App = (() => {
       if (_searchAbort) { _searchAbort.abort(); _searchAbort = null; }
       _focusIdx = -1;
 
-      if (q.length < 2) { _hideResults(); return; }
+      if (!q) { _hideResults(); return; }
 
-      if (_searchCache.has(q)) {
-        _renderResults(_searchCache.get(q));
-        return;
-      }
-
-      results.innerHTML = '<div class="map-search-msg"><span class="search-spin"></span>กำลังค้นหา…</div>';
+      /* 1. แสดงหมุดพิเศษที่ตรงกันทันที — ไม่รอ API */
+      const localPins = _searchLocalPins(q);
+      _renderMixed(localPins, null, q, true /* remoteLoading */);
       results.classList.remove('hidden');
-      _searchTimer = setTimeout(() => _doSearch(q), 420);
+
+      /* 2. Nominatim หลังจาก debounce 380ms */
+      _searchTimer = setTimeout(() => _doSearch(q, localPins), 380);
     });
 
     input.addEventListener('keydown', e => {
@@ -855,15 +892,13 @@ const App = (() => {
     });
 
     input.addEventListener('focus', () => {
-      if (input.value.trim().length >= 2 && !results.classList.contains('hidden'))
+      if (input.value.trim() && !results.classList.contains('hidden'))
         results.classList.remove('hidden');
     });
 
     clearBtn.addEventListener('click', () => {
-      input.value = '';
-      clearBtn.classList.add('hidden');
-      _hideResults();
-      input.focus();
+      input.value = ''; clearBtn.classList.add('hidden');
+      _hideResults(); input.focus();
     });
 
     document.addEventListener('click', e => {
@@ -871,35 +906,85 @@ const App = (() => {
     });
   }
 
-  async function _doSearch(q) {
+  /* ── Local pin search (instant, no API) ─────────────────── */
+  function _searchLocalPins(q) {
+    const qLow   = q.toLowerCase();
+    const center = _searchCenter();
+    return PinStorage.getAll()
+      .map(pin => ({ pin, score: _scorePinMatch(pin, qLow, center) }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(({ pin }) => pin);
+  }
+
+  function _scorePinMatch(pin, qLow, center) {
+    const name = (pin.name || '').toLowerCase();
+    const desc = ((pin.description || '') + ' ' + (pin.history || '')).toLowerCase();
+
+    let score = 0;
+    if (name === qLow)              score = 100;
+    else if (name.startsWith(qLow)) score =  90;
+    else if (name.includes(qLow))   score =  75;
+    else if (desc.includes(qLow))   score =  40;
+    else {
+      let matched = 0, ni = 0;
+      for (const ch of qLow) {
+        const f = name.indexOf(ch, ni);
+        if (f !== -1) { matched++; ni = f + 1; }
+      }
+      score = matched >= Math.ceil(qLow.length * 0.75)
+        ? Math.floor((matched / qLow.length) * 30) : 0;
+    }
+
+    if (score === 0) return 0;
+
+    /* Distance bonus — ใกล้ GPS ยิ่งได้คะแนนเพิ่ม */
+    if (center && pin.lat != null && pin.lng != null) {
+      const dist = NavManager.haversine(center.lat, center.lng, pin.lat, pin.lng);
+      if      (dist <  1_000) score += 35;
+      else if (dist <  5_000) score += 25;
+      else if (dist < 20_000) score += 15;
+      else if (dist < 50_000) score +=  5;
+    }
+
+    return score;
+  }
+
+  async function _doSearch(q, localPins = []) {
     if (_searchAbort) _searchAbort.abort();
     _searchAbort = new AbortController();
-    const signal  = _searchAbort.signal;
-    const results = document.getElementById('mapSearchResults');
-    const center  = _searchCenter();
+    const signal = _searchAbort.signal;
+    const center = _searchCenter();
 
     try {
       const variants = _queryVariants(q);
 
-      // Phase 1 – ค้นหาเฉพาะรอบตำแหน่งปัจจุบัน (bounded, ~45 km)
-      const nearbySettled = await Promise.allSettled(
-        variants.map(v => _fetchNominatim(v, signal, center, 0.4, true))
-      );
+      /* Phase 1 – Nominatim nearby + Overpass รันพร้อมกัน */
+      const [nearbySettled, ovpItems] = await Promise.all([
+        Promise.allSettled(variants.map(v => _fetchNominatim(v, signal, center, 0.4, true))),
+        _fetchOverpass(q, signal, center).catch(() => []),
+      ]);
       if (signal.aborted) return;
 
       const seenIds = new Set();
       const nearby  = [];
+
+      /* Overpass ก่อน — ครอบคลุม raw OSM มากกว่า */
+      ovpItems.forEach(item => {
+        if (!seenIds.has(item.place_id)) { seenIds.add(item.place_id); nearby.push(item); }
+      });
       nearbySettled.forEach(r => {
         if (r.status !== 'fulfilled') return;
         r.value.forEach(item => {
-          if (!seenIds.has(item.place_id)) { seenIds.add(item.place_id); nearby.push(item); }
+          if (!seenIds.has(item.place_id) && !_isDupByProximity(item, nearby))
+            { seenIds.add(item.place_id); nearby.push(item); }
         });
       });
-      nearby.sort((a, b) => _textScore(b, q) - _textScore(a, q));
+      nearby.sort((a, b) => _relevanceScore(b, q) - _relevanceScore(a, q));
 
-      // Phase 2 – ถ้าผลใกล้เคียงน้อยกว่า 4 → เพิ่มผลจากทั่วประเทศมาเติม
+      /* Phase 2 – ถ้าผลน้อยกว่า 3 → ดึงทั่วประเทศมาเติม */
       let extra = [];
-      if (nearby.length < 4) {
+      if (nearby.length < 3) {
         const broadSettled = await Promise.allSettled(
           variants.map(v => _fetchNominatim(v, signal, center, 1.5, false))
         );
@@ -907,27 +992,56 @@ const App = (() => {
         broadSettled.forEach(r => {
           if (r.status !== 'fulfilled') return;
           r.value.forEach(item => {
-            if (!seenIds.has(item.place_id)) { seenIds.add(item.place_id); extra.push(item); }
+            if (!seenIds.has(item.place_id) && !_isDupByProximity(item, nearby))
+              { seenIds.add(item.place_id); extra.push(item); }
           });
         });
         extra.sort((a, b) => _relevanceScore(b, q) - _relevanceScore(a, q));
       }
 
-      // รวม: ใกล้เคียงก่อนเสมอ ตามด้วยไกล
-      const merged = [...nearby, ...extra].slice(0, 8);
-
-      if (!merged.length) {
-        results.innerHTML = `<div class="map-search-msg">ไม่พบ "<b>${_esc(q)}</b>"<br><span class="search-hint">ลองพิมพ์ชื่อย่อ หรือเป็นภาษาอังกฤษ</span></div>`;
-        return;
-      }
-
-      if (_searchCache.size >= 40) _searchCache.delete(_searchCache.keys().next().value);
-      _searchCache.set(q, merged);
-      _renderResults(merged);
+      const remote = [...nearby, ...extra].slice(0, 8);
+      _renderMixed(localPins, remote, q, false);
     } catch (err) {
       if (err.name === 'AbortError') return;
-      results.innerHTML = '<div class="map-search-msg">เชื่อมต่อไม่ได้ — ลองใหม่อีกครั้ง</div>';
+      _renderMixed(localPins, null, q, false);
     }
+  }
+
+  async function _fetchOverpass(q, signal, center) {
+    if (!center) return [];
+    const { lat, lng } = center;
+    const safe = q.replace(/["\\]/g, '');
+    const body =
+      `[out:json][timeout:12];` +
+      `(node["name"~"${safe}",i](around:8000,${lat},${lng});` +
+      ` way["name"~"${safe}",i](around:8000,${lat},${lng}););` +
+      `out center 20;`;
+    const res = await fetch('https://overpass-api.de/api/interpreter',
+      { method: 'POST', body, signal });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.elements || []).map(el => {
+      const eLat = el.lat ?? el.center?.lat;
+      const eLng = el.lon ?? el.center?.lon;
+      if (!eLat || !eLng) return null;
+      const name = el.tags?.name || '';
+      if (!name) return null;
+      return {
+        place_id: `ovp_${el.type}_${el.id}`,
+        lat: String(eLat), lon: String(eLng),
+        name, display_name: name,
+        address: {}, namedetails: {},
+      };
+    }).filter(Boolean);
+  }
+
+  function _isDupByProximity(item, list, thresholdM = 80) {
+    const iLat = parseFloat(item.lat), iLng = parseFloat(item.lon);
+    if (isNaN(iLat)) return false;
+    return list.some(r => {
+      const rLat = parseFloat(r.lat), rLng = parseFloat(r.lon);
+      return !isNaN(rLat) && NavManager.haversine(iLat, iLng, rLat, rLng) < thresholdM;
+    });
   }
 
   async function _fetchNominatim(q, signal, center, delta, bounded) {
@@ -1022,33 +1136,74 @@ const App = (() => {
     return score;
   }
 
-  function _renderResults(data) {
+  function _renderMixed(localPins, remote, q, remoteLoading) {
     const results = document.getElementById('mapSearchResults');
-    results.innerHTML = data.map((item, i) => {
-      const addr  = item.address || {};
-      const name  = item.name
-                 || addr.road || addr.suburb
-                 || item.display_name.split(',')[0];
-      const parts = [];
-      if (addr.road    && addr.road    !== name) parts.push(addr.road);
-      if (addr.suburb  && addr.suburb  !== name) parts.push(addr.suburb);
-      const city = addr.city || addr.town || addr.village || addr.municipality;
-      if (city)                                  parts.push(city);
-      if (addr.province && addr.province !== city) parts.push(addr.province);
-      const sub = parts.slice(0, 3).join(' · ');
-      return `<div class="map-search-item" data-idx="${i}" role="option">
-        <span class="map-search-item-icon">${_searchIcon(item.type, item.class)}</span>
-        <div class="map-search-item-body">
-          <div class="map-search-item-name">${_esc(name)}</div>
-          ${sub ? `<div class="map-search-item-addr">${_esc(sub)}</div>` : ''}
-        </div>
-      </div>`;
-    }).join('');
+    let html = '';
+
+    /* ── หมุดพิเศษ (local, instant) ── */
+    if (localPins.length) {
+      html += localPins.map((pin, i) =>
+        `<div class="map-search-item" data-local="${i}" role="option">
+          <span class="map-search-item-icon" style="color:#4f46e5">
+            <svg class="icon" aria-hidden="true"><use href="#ic-pin"/></svg>
+          </span>
+          <div class="map-search-item-body">
+            <div class="map-search-item-name">${_esc(pin.name)}</div>
+            ${pin.description ? `<div class="map-search-item-addr">${_esc(pin.description.slice(0, 55))}</div>` : ''}
+          </div>
+          <span class="search-local-badge">หมุดพิเศษ</span>
+        </div>`
+      ).join('');
+    }
+
+    /* ── ผลจาก Nominatim ── */
+    if (remote && remote.length) {
+      if (localPins.length) {
+        html += `<div class="search-section-label">สถานที่ใกล้เคียง</div>`;
+      }
+      html += remote.map((item, i) => {
+        const addr = item.address || {};
+        const name = item.name || addr.road || addr.suburb || item.display_name.split(',')[0];
+        const parts = [];
+        if (addr.road    && addr.road    !== name) parts.push(addr.road);
+        if (addr.suburb  && addr.suburb  !== name) parts.push(addr.suburb);
+        const city = addr.city || addr.town || addr.village || addr.municipality;
+        if (city) parts.push(city);
+        if (addr.province && addr.province !== city) parts.push(addr.province);
+        const sub = parts.slice(0, 3).join(' · ');
+        return `<div class="map-search-item" data-remote="${i}" role="option">
+          <span class="map-search-item-icon">${_searchIcon()}</span>
+          <div class="map-search-item-body">
+            <div class="map-search-item-name">${_esc(name)}</div>
+            ${sub ? `<div class="map-search-item-addr">${_esc(sub)}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    } else if (remoteLoading) {
+      html += `<div class="search-remote-loading"><span class="search-spin"></span>กำลังค้นหาเพิ่มเติม…</div>`;
+    }
+
+    if (!html) {
+      html = `<div class="map-search-msg">ไม่พบ "<b>${_esc(q)}</b>"<br><span class="search-hint">ลองพิมพ์ชื่อย่อ หรือภาษาอื่น</span></div>`;
+    }
+
+    results.innerHTML = html;
     results.classList.remove('hidden');
 
-    results.querySelectorAll('.map-search-item').forEach(el => {
+    /* click handlers */
+    results.querySelectorAll('[data-local]').forEach(el => {
       el.addEventListener('click', () => {
-        const item = data[+el.dataset.idx];
+        const pin = localPins[+el.dataset.local];
+        map.flyTo([pin.lat, pin.lng], 17, { duration: 1.0 });
+        results.classList.add('hidden');
+        document.getElementById('mapSearchInput').blur();
+        setTimeout(() => showPinSheet(pin), 400);
+      });
+    });
+
+    results.querySelectorAll('[data-remote]').forEach(el => {
+      el.addEventListener('click', () => {
+        const item = remote[+el.dataset.remote];
         map.flyTo([parseFloat(item.lat), parseFloat(item.lon)], 17, { duration: 1.2 });
         _placeSelectedPin(parseFloat(item.lat), parseFloat(item.lon));
         results.classList.add('hidden');
@@ -1158,7 +1313,28 @@ const App = (() => {
     setTimeout(() => t.classList.remove('show'), 3000);
   }
 
-  return { init };
+  function showPlaceAt(lat, lng) {
+    closeSheet();
+    const gen = ++_mapClickGen;
+    _placeSheetLoading();
+    PlaceInfo.fetchNearby(lat, lng, 60)
+      .then(elements => {
+        if (gen !== _mapClickGen) return;
+        const el = PlaceInfo.closest(elements, lat, lng);
+        if (!el) { closePlaceSheet(); return; }
+        _populatePlaceSheet(el);
+      })
+      .catch(() => { if (gen !== _mapClickGen) return; closePlaceSheet(); });
+  }
+
+  /* ใช้กับ POI marker — ข้อมูล element มีอยู่แล้ว ไม่ต้อง query Overpass ซ้ำ */
+  function showPlaceFor(element) {
+    ++_mapClickGen;   // invalidate any in-flight map click
+    closeSheet();
+    _populatePlaceSheet(element);
+  }
+
+  return { init, showPlaceAt, showPlaceFor };
 })();
 
 /* ── Entry point ─────────────────────────────────────────── */

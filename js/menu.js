@@ -4,7 +4,7 @@
 
 const MenuManager = (() => {
   let isOpen    = false;
-  let activeTab = 'history';
+  let activeTab = 'wanderer';
 
   /* ── Open / Close / Toggle ───────────────────────────────── */
   function open() {
@@ -113,12 +113,12 @@ const MenuManager = (() => {
     }
   }
 
-  /* ── Level definitions (based on total visit count) ─────── */
+  /* ── Level definitions (based on unique pins visited, max 9) ─────── */
   const LEVELS = [
-    { lv: 1, icon: 'I',   key: 'level.1', min: 0,  next: 5  },
-    { lv: 2, icon: 'II',  key: 'level.2', min: 5,  next: 10 },
-    { lv: 3, icon: 'III', key: 'level.3', min: 10, next: 20 },
-    { lv: 4, icon: 'IV',  key: 'level.4', min: 20, next: null },
+    { lv: 1, icon: 'I',   key: 'level.1', min: 0, next: 3 },
+    { lv: 2, icon: 'II',  key: 'level.2', min: 3, next: 6 },
+    { lv: 3, icon: 'III', key: 'level.3', min: 6, next: 9 },
+    { lv: 4, icon: 'IV',  key: 'level.4', min: 9, next: null },
   ];
 
   function getLevelInfo(n) {
@@ -160,7 +160,7 @@ const MenuManager = (() => {
             <div class="lv-num">${I18n.t('lp.level', lv.lv)}</div>
             <div class="lv-title">${I18n.t(lv.key)}</div>
           </div>
-          <div class="lv-visits-badge">${I18n.t('lp.visits_badge', totalVisits)}</div>
+          <div class="lv-visits-badge">${totalVisits} จุด</div>
         </div>
         ${progressBlock}
       </div>`;
@@ -176,9 +176,7 @@ const MenuManager = (() => {
     const doneCount   = allPins.filter(p => visited.has(p.id)).length;
     const pct         = total > 0 ? Math.round((doneCount / total) * 100) : 0;
     const rank        = getWandererRank(doneCount, pct);
-    const totalVisits = allHistory.length;
-
-    const levelHtml = renderLevelCard(totalVisits);
+    const levelHtml = renderLevelCard(doneCount);
 
     if (total === 0) {
       container.innerHTML = `
@@ -302,24 +300,23 @@ const MenuManager = (() => {
     _medalCrown('#501070', '#8030B8', '#7020A8', '#C870FF', '#9030D0'),
   ];
 
-  /* All rank definitions for the scroll showcase */
+  /* All rank definitions — based on unique pins visited (d), not percentage */
   const ALL_RANKS = [
-    { id: 'beginner',   icon: CHICK_ICONS[0], key: 'rank.beginner',  sub: { th: 'ผู้เริ่มต้น',        en: 'Beginner'   }, check: (d,p) => d === 0 },
-    { id: 'traveler',   icon: CHICK_ICONS[1], key: 'rank.traveler',   sub: { th: 'นักเดินทาง',          en: 'Traveler'   }, check: (d,p) => d > 0 && p < 25 },
-    { id: 'explorer',   icon: CHICK_ICONS[2], key: 'rank.explorer',   sub: { th: 'ผู้สำรวจ',            en: 'Explorer'   }, check: (d,p) => p >= 25 && p < 50 },
-    { id: 'adventurer', icon: CHICK_ICONS[3], key: 'rank.adventurer', sub: { th: 'นักผจญภัย',           en: 'Adventurer' }, check: (d,p) => p >= 50 && p < 75 },
-    { id: 'wanderer',   icon: CHICK_ICONS[4], key: 'rank.wanderer',   sub: { th: 'ผู้พเนจร',            en: 'Wanderer'   }, check: (d,p) => p >= 75 && p < 100 },
-    { id: 'legend',     icon: CHICK_ICONS[5], key: 'rank.legend',     sub: { th: 'ผู้พเนจรผู้ยิ่งใหญ่', en: 'Legend'    }, check: (d,p) => p === 100 },
+    { id: 'beginner',   icon: CHICK_ICONS[0], key: 'rank.beginner',  sub: { th: 'ผู้เริ่มต้น',        en: 'Beginner'   }, check: d => d === 0 },
+    { id: 'traveler',   icon: CHICK_ICONS[1], key: 'rank.traveler',   sub: { th: 'นักเดินทาง',          en: 'Traveler'   }, check: d => d >= 1 && d <= 2 },
+    { id: 'explorer',   icon: CHICK_ICONS[2], key: 'rank.explorer',   sub: { th: 'นักสำรวจ',            en: 'Explorer'   }, check: d => d >= 3 && d <= 4 },
+    { id: 'adventurer', icon: CHICK_ICONS[3], key: 'rank.adventurer', sub: { th: 'นักผจญภัย',           en: 'Adventurer' }, check: d => d >= 5 && d <= 6 },
+    { id: 'wanderer',   icon: CHICK_ICONS[4], key: 'rank.wanderer',   sub: { th: 'ผู้พเนจร',            en: 'Wanderer'   }, check: d => d >= 7 },
+    { id: 'legend',     icon: CHICK_ICONS[5], key: 'rank.legend',     sub: { th: 'ผู้พเนจรผู้ยิ่งใหญ่', en: 'Legend'    }, check: d => d >= 12 },
   ];
 
   function renderRankScroll(doneCount, pct) {
-    const lang = I18n.getLang();
     const cards = ALL_RANKS.map(r => {
-      const isActive = r.check(doneCount, pct);
+      const isActive = r.check(doneCount);
       return `
         <div class="rank-card${isActive ? ' rank-card-active' : ''}" data-rank-id="${r.id}">
           <div class="rank-card-icon${isActive ? ' rank-icon-anim' : ''}">${r.icon}</div>
-          <div class="rank-card-name">${r.sub[lang] ?? r.sub.th}</div>
+          <div class="rank-card-name">${r.sub.th}</div>
         </div>`;
     }).join('');
     return `<div class="rank-scroll" id="rankScroll">${cards}</div>`;
@@ -327,9 +324,8 @@ const MenuManager = (() => {
 
   /* Rank definitions (based on % of unique pins visited) */
   function getWandererRank(done, pct) {
-    const r = ALL_RANKS.find(r => r.check(done, pct)) ?? ALL_RANKS[ALL_RANKS.length - 1];
-    const lang = I18n.getLang();
-    return { icon: r.icon, title: r.sub[lang] ?? r.sub.th };
+    const r = ALL_RANKS.find(r => r.check(done)) ?? ALL_RANKS[ALL_RANKS.length - 1];
+    return { icon: r.icon, title: r.sub.th };
   }
 
   /* ── Init ────────────────────────────────────────────────── */
@@ -361,7 +357,7 @@ const MenuManager = (() => {
     const now = new Date();
     if (isSameDay(d, now))          return I18n.t('time.today');
     if (isSameDay(d, yesterday()))  return I18n.t('time.yesterday');
-    const locale = I18n.getLang() === 'en' ? 'en-US' : 'th-TH';
+    const locale = 'th-TH';
     return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
   }
 
@@ -370,7 +366,7 @@ const MenuManager = (() => {
     if (diff < 60_000)       return I18n.t('time.just_now');
     if (diff < 3_600_000)    return I18n.t('time.minutes_ago', Math.floor(diff / 60_000));
     if (diff < 86_400_000)   return I18n.t('time.hours_ago',   Math.floor(diff / 3_600_000));
-    const locale = I18n.getLang() === 'en' ? 'en-US' : 'th-TH';
+    const locale = 'th-TH';
     return new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   }
 

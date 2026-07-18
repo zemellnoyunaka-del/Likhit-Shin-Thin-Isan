@@ -27,7 +27,7 @@ const PlaceInfo = (() => {
   }
 
   function getLatLng(el) {
-    if (el.type === 'node') return { lat: el.lat, lng: el.lon };
+    if (el.lat != null && el.lon != null) return { lat: el.lat, lng: el.lon };
     if (el.center) return { lat: el.center.lat, lng: el.center.lon };
     return null;
   }

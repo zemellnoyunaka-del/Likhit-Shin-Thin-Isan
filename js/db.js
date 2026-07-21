@@ -12,6 +12,7 @@ const VoiceMapDB = (() => {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onerror = () => reject(req.error);
+      req.onblocked = () => reject(new Error('IndexedDB open blocked — another tab is holding an older version open'));
       req.onsuccess = e => { db = e.target.result; resolve(); };
       req.onupgradeneeded = e => {
         const d = e.target.result;
@@ -47,10 +48,11 @@ const VoiceMapDB = (() => {
   }
 
   async function deleteAudio(pinId) {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       const t = db.transaction(STORE, 'readwrite');
       t.objectStore(STORE).delete(pinId);
       t.oncomplete = () => resolve();
+      t.onerror = () => reject(t.error);
     });
   }
 

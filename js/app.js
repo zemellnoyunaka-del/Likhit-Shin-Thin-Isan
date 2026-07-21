@@ -52,6 +52,9 @@ const App = (() => {
 
   /* ── Boot ────────────────────────────────────────────────── */
   async function init() {
+    if (typeof L === 'undefined') {
+      throw new Error('Leaflet (L) is not defined — map library failed to load');
+    }
     I18n.apply();   // apply saved language before anything renders
     await VoiceMapDB.init();
     await SeedData.run();
@@ -240,7 +243,13 @@ const App = (() => {
     VisitHistory.record(pin);
     MenuManager.onVisit();
 
-    const blob = await VoiceMapDB.getAudio(pin.id);
+    let blob;
+    try {
+      blob = await VoiceMapDB.getAudio(pin.id);
+    } catch (e) {
+      console.error('getAudio failed for', pin.id, e);
+      return;
+    }
     if (!blob) return;
 
     try {
@@ -406,6 +415,13 @@ const App = (() => {
         playBtn.dataset.playing = '';
         playBtn.disabled = false;
       }
+    }).catch(e => {
+      /* IndexedDB read failed — อย่าปล่อยปุ่มค้างที่ "…" ตลอดไป */
+      console.error('getAudio failed for', pin.id, e);
+      if (activePin?.id !== pin.id) return;
+      _setPlayBtnText(playBtn, 'ic-speaker', I18n.t('sheet.play'));
+      playBtn.disabled = false;
+      playBtn.dataset.playing = '';
     });
 
     document.getElementById('pinSheet').classList.add('show');
@@ -568,7 +584,15 @@ const App = (() => {
       _setPlayBtnText(btn, null, '…');
       btn.disabled = true;
 
-      const blob = await VoiceMapDB.getAudio(activePin.id);
+      let blob;
+      try {
+        blob = await VoiceMapDB.getAudio(activePin.id);
+      } catch (e) {
+        console.error('getAudio failed for', activePin.id, e);
+        _setPlayBtnText(btn, 'ic-speaker', I18n.t('sheet.play'));
+        btn.disabled = false;
+        return;
+      }
       if (!blob) { _setPlayBtnText(btn, 'ic-speaker', I18n.t('sheet.play')); btn.disabled = false; return; }
 
       _setPlayBtnText(btn, 'ic-pause', I18n.t('sheet.playing'));
@@ -744,7 +768,7 @@ const App = (() => {
   function _placeSheetLoading() {
     document.getElementById('gmapsFrame').src = '';
     document.getElementById('placePhotoPanel').classList.add('hidden');
-    document.getElementById('placePhoto').src = '';
+    document.getElementById('placePhoto').removeAttribute('src');
     document.getElementById('placeCategoryBadge').textContent = '';
     document.getElementById('placeTitle').textContent = '';
     document.getElementById('placeInfoList').innerHTML =
@@ -807,7 +831,7 @@ const App = (() => {
     const photoPanel = document.getElementById('placePhotoPanel');
     const photoImg   = document.getElementById('placePhoto');
     photoPanel.classList.add('hidden');
-    photoImg.src = '';
+    photoImg.removeAttribute('src');
     PlaceInfo.getPlacePhoto(tags).then(url => {
       if (!url) return;
       photoImg.onload  = () => photoPanel.classList.remove('hidden');
@@ -836,7 +860,7 @@ const App = (() => {
     document.getElementById('placeSheet').classList.remove('show');
     document.getElementById('gmapsFrame').src = '';
     document.getElementById('placePhotoPanel').classList.add('hidden');
-    document.getElementById('placePhoto').src = '';
+    document.getElementById('placePhoto').removeAttribute('src');
     if (selectedLocMarker) { map.removeLayer(selectedLocMarker); selectedLocMarker = null; }
     placeLat = null; placeLng = null;
   }
@@ -1338,4 +1362,13 @@ const App = (() => {
 })();
 
 /* ── Entry point ─────────────────────────────────────────── */
-(async () => { try { await App.init(); } catch(e) { console.error(e); } })();
+(async () => {
+  try {
+    await App.init();
+  } catch (e) {
+    console.error('App.init() failed:', e);
+    if (window.__showFatalError) {
+      window.__showFatalError('ไม่สามารถโหลดแอปได้<br>กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง');
+    }
+  }
+})();

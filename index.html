@@ -4,6 +4,56 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>แผนที่นิราศ</title>
+  <script>
+    /* ══ Global failure guard — must run before any other script/link ══
+       Catches: JS runtime errors, unhandled promise rejections, and failed
+       script loads (e.g. CDN down). Without this, a failure mid-boot leaves
+       a dead, unresponsive page with no feedback to the user. */
+    (function () {
+      function showFatalError(msg) {
+        if (document.getElementById('fatalErrorOverlay')) return;
+        var render = function () {
+          var o = document.createElement('div');
+          o.id = 'fatalErrorOverlay';
+          o.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,15,20,.94);' +
+            'color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+            'text-align:center;padding:24px;font-family:system-ui,-apple-system,Sarabun,sans-serif;gap:16px;';
+          o.innerHTML = '<div style="font-size:40px">⚠️</div>' +
+            '<div style="font-size:16px;max-width:320px;line-height:1.6">' + msg + '</div>' +
+            '<button id="fatalErrorReload" style="padding:10px 28px;border-radius:10px;border:none;' +
+            'background:#f59e0b;color:#111;font-weight:600;font-size:15px;cursor:pointer">ลองใหม่อีกครั้ง</button>';
+          document.body.appendChild(o);
+          document.getElementById('fatalErrorReload').onclick = function () { location.reload(); };
+        };
+        if (document.body) render();
+        else document.addEventListener('DOMContentLoaded', render, { once: true });
+      }
+      window.__showFatalError = showFatalError;
+
+      window.addEventListener('error', function (e) {
+        var tgt = e.target;
+        if (tgt && tgt.tagName === 'SCRIPT') {
+          console.error('Script failed to load:', tgt.src);
+          showFatalError('โหลดไฟล์ที่จำเป็นสำหรับแอปไม่สำเร็จ<br>กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+          return;
+        }
+        if (tgt && tgt.tagName === 'LINK') {
+          console.error('Stylesheet failed to load:', tgt.href);
+          return; // degrade styling, not fatal
+        }
+        if (tgt && tgt !== window && tgt.tagName) {
+          // resource load errors (e.g. <audio>/<img>) — not fatal, just log which element
+          console.error(tgt.tagName + ' failed to load:', tgt.src || tgt.href || tgt);
+          return;
+        }
+        console.error('Unhandled error:', e.error || e.message);
+      }, true);
+
+      window.addEventListener('unhandledrejection', function (e) {
+        console.error('Unhandled promise rejection:', e.reason);
+      });
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sarabun:wght@300;400;500;600;700&display=swap">
@@ -316,7 +366,7 @@
         <span class="sheet-type-badge hidden" id="sheetTypeBadge"></span>
         <div class="sheet-title" id="sheetTitle">ชื่อสถานที่</div>
       </div>
-      <button type="button" id="sheetClose" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;flex-shrink:0;margin-left:8px;">✕</button>
+      <button type="button" id="sheetClose" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;flex-shrink:0;padding:10px;margin:-10px -10px -10px -2px;">✕</button>
     </div>
     <div class="sheet-scroll">
       <div class="sheet-desc" id="sheetDesc"></div>
@@ -330,7 +380,7 @@
       <div class="sheet-poem hidden" id="sheetPoem">
         <div class="sheet-poem-label">
           <svg class="icon" aria-hidden="true"><use href="#ic-scroll"/></svg>
-          กลอน
+          กลอนนิราศ
         </div>
         <div class="sheet-poem-text" id="sheetPoemText"></div>
       </div>
@@ -383,7 +433,7 @@
         <span class="poi-sh-cat" id="poiShCat"></span>
         <div class="poi-sh-name" id="poiShName"></div>
       </div>
-      <button type="button" id="poiShClose" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;flex-shrink:0;margin-left:8px;">✕</button>
+      <button type="button" id="poiShClose" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;flex-shrink:0;padding:10px;margin:-10px -10px -10px -2px;">✕</button>
     </div>
     <div class="sheet-scroll">
       <div class="poi-sh-img hidden" id="poiShImgWrap">
@@ -413,7 +463,7 @@
     </div>
     <div class="place-body-row">
       <div class="place-photo-panel hidden" id="placePhotoPanel">
-        <img id="placePhoto" src="" alt="">
+        <img id="placePhoto" alt="">
       </div>
       <div class="place-info-list" id="placeInfoList"></div>
     </div>
